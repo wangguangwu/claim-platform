@@ -8,7 +8,7 @@
 
 ## 业务边界
 
-- 平台服务于多租户理赔业务，覆盖线上申请签收、案件推送、运营查询与异常诊断。
+- 平台服务于多租户理赔业务，当前覆盖线上申请签收与案件推送；运营查询与异常诊断在出现明确用例后作为独立限界上下文建设。
 - 平台不承担案件审核、赔付决策或外部保司的核心业务处理。
 - 一个线上申请可以关联多个案件；案件也可以独立于申请由线下来源进入平台。
 - Agent 只负责信息收集、证据归纳、异常分析和处置建议；Agent 不得直接修改核心业务数据。
@@ -20,12 +20,8 @@ flowchart LR
     FE[frontend\nVue 3 管理端] --> GW[backend/claim-gateway]
     GW --> SIGN[backend/claim-application\nApplication Intake]
     GW --> PUSH[backend/claim-case-delivery\nCase Delivery]
-    GW --> MANAGE[backend/claim-operations\nOperations]
-    MANAGE -->|公开 API / 事件投影| SIGN
-    MANAGE -->|公开 API / 事件投影| PUSH
     SIGN --> SIGNDB[(sign_db)]
     PUSH --> PUSHDB[(push_db)]
-    MANAGE --> MANAGEDB[(manage_db)]
 ```
 
 ## 工程边界
@@ -36,7 +32,6 @@ backend/                          # 后端 Maven 聚合工程
 ├── claim-gateway/                # 边缘层，不承载领域业务
 ├── claim-application/            # Application Intake：申请签收限界上下文
 ├── claim-case-delivery/          # Case Delivery：案件推送限界上下文
-├── claim-operations/             # Operations：运营与异常诊断限界上下文
 └── claim-common/                 # 共享技术能力与版本化契约，不含领域规则
 specs/                            # 根约束与功能变更 Spec
 standards/                        # 按任务加载的工程规范
@@ -51,7 +46,7 @@ AGENTS.md                         # Agent 规则路由与执行门禁
 | --- | --- | --- | --- | --- |
 | Application Intake | `claim-application` | 申请、材料、同步任务 | 签收申请、追踪材料处理、发起下游同步 | 审核案件、写入 Case Delivery 数据库 |
 | Case Delivery | `claim-case-delivery` | 案件、推送任务、回执、死信 | 接收任意来源案件并受控推送 | 假设案件必须由 Application Intake 创建、写入其数据库 |
-| Operations & Diagnosis | `claim-operations` | 运营记录、诊断报告、人工确认审计 | 聚合展示、辅助诊断、提交受控动作请求 | 直接查询或写入其他限界上下文数据库 |
+| Operations & Diagnosis | 待明确用例后新建独立模块，禁止放入 `claim-common` | 运营记录、诊断报告、人工确认审计 | 聚合展示、辅助诊断、提交受控动作请求 | 直接查询或写入其他限界上下文数据库 |
 | Edge & Platform | `claim-gateway` | 无领域事实 | 身份、租户识别、路由、限流、Trace | 领域编排、持久化领域状态 |
 | Platform Common | `claim-common` | 无领域事实 | 多租户上下文、Trace、通用错误、稳定的共享契约 | 放入申请、案件、策略、审核等领域模型 |
 

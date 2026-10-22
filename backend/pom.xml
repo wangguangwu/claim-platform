@@ -15,6 +15,5 @@
     <module>claim-gateway</module>
     <module>claim-application</module>
     <module>claim-case-delivery</module>
-    <module>claim-operations</module>
   </modules>
 </project>

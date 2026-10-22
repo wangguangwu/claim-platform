@@ -1,6 +1,6 @@
 # claim-platform
 
-多租户理赔业务平台。平台覆盖线上申请签收、案件推送、运营查询与异常诊断；不承担案件审核、赔付决策或外部保司的核心业务处理。
+多租户理赔业务平台。当前覆盖线上申请签收与案件推送；运营查询与异常诊断在出现明确用例后作为独立限界上下文建设。平台不承担案件审核、赔付决策或外部保司的核心业务处理。
 
 ## 项目结构
 
@@ -11,7 +11,6 @@ claim-platform/
 │   ├── claim-gateway/         # 认证、租户识别、路由、限流、Trace
 │   ├── claim-application/     # Application Intake：申请签收限界上下文
 │   ├── claim-case-delivery/   # Case Delivery：案件推送限界上下文
-│   ├── claim-operations/      # Operations：运营与异常诊断限界上下文
 │   └── claim-common/          # 无领域规则的共享技术能力与稳定契约
 ├── docker/                    # Dockerfile、Compose 与本地容器资源
 ├── specs/                     # 项目根约束和功能变更 Spec
@@ -44,3 +43,16 @@ claim-platform/
 ```bash
 mvn verify
 ```
+
+## 本地启动
+
+先按 [Docker 运行说明](docker/README.md) 启动 MySQL，构建全部后端可执行包，再单独启动需要调试的服务：
+
+```bash
+mvn package
+java -jar backend/claim-gateway/target/claim-gateway-0.1.0-SNAPSHOT.jar
+java -jar backend/claim-application/target/claim-application-0.1.0-SNAPSHOT.jar
+java -jar backend/claim-case-delivery/target/claim-case-delivery-0.1.0-SNAPSHOT.jar
+```
+
+每个服务都通过 `/actuator/health` 提供本地存活检查。当前只提供可启动的基础骨架，不代表签收或推送业务能力已经实现。

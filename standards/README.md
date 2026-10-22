@@ -19,6 +19,7 @@
 | `spec-coding.md` | 如何编写、追踪和验收功能 Spec | 新增或修改功能 Spec、开始功能实现前 |
 | `java.md` | 如何组织和验证 Java 生产代码与测试 | 修改 Java 代码或测试 |
 | `frontend.md` | 如何组织 Vue、TypeScript、状态与 API 调用 | 修改前端代码 |
+| `error-handling.md` | 如何定义响应信封、错误码、HTTP 映射与异常日志 | 修改 HTTP 响应或异常处理 |
 | `commit.md` | 如何检查改动并编写提交信息 | 准备 Git 提交 |
 
 `AGENTS.md` 是唯一的任务路由入口。执行任务时只读取它指定的标准；不要为了“完整阅读”加载无关文件。

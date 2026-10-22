@@ -1,0 +1,24 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: claim-platform-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Copy docker/.env.example to docker/.env first}
+      MYSQL_DATABASE: sign_db
+      MYSQL_USER: claim
+      MYSQL_PASSWORD: ${CLAIM_DB_PASSWORD:?Copy docker/.env.example to docker/.env first}
+    ports:
+      - "3306:3306"
+    volumes:
+      - claim-platform-mysql-data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
+
+volumes:
+  claim-platform-mysql-data:

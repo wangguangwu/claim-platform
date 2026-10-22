@@ -12,6 +12,7 @@
 | 调整限界上下文、跨上下文协作、聚合、事件、契约或数据边界 | `standards/ddd.md`、`standards/spec-coding.md` |
 | 修改 Java 生产代码或测试 | `standards/java.md`；涉及领域逻辑时同时读取 `standards/ddd.md` |
 | 修改 Vue 页面、组件、Composable、Store、API 模块或 TypeScript 业务函数 | `standards/frontend.md` |
+| 定义或修改 HTTP 响应、错误码、全局异常处理或异常日志 | `standards/error-handling.md`；Java 服务同时读取 `standards/java.md` |
 | 新增或修改功能 Spec | `standards/spec-coding.md` |
 | 修改根需求、工程标准或本文件 | `standards/README.md` 及被修改的目标标准；修改根需求时同时进行项目级评审 |
 | 准备 Git 提交 | `standards/commit.md` |
