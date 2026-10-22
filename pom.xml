@@ -24,6 +24,7 @@
       <otel.version>2.10.0</otel.version>
       <mapstruct.version>1.6.2</mapstruct.version>
       <lombok.version>1.18.34</lombok.version>
+      <redisson.version>3.29.0</redisson.version>
     </properties>
   <dependencyManagement>
     <dependencies>

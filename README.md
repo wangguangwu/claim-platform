@@ -46,7 +46,7 @@ mvn verify
 
 ## 本地启动
 
-先按 [Docker 运行说明](docker/README.md) 启动 MySQL，构建全部后端可执行包，再单独启动需要调试的服务：
+先按 [Docker 运行说明](docker/README.md) 启动 MySQL 与 Redis，构建全部后端可执行包，再单独启动需要调试的服务：
 
 ```bash
 mvn package
