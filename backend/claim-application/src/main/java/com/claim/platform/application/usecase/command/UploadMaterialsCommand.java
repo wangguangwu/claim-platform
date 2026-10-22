@@ -8,6 +8,5 @@ import java.util.List;
  *
  * @author wangguangwu
  */
-public record UploadMaterialsCommand(String tenantCode, String signNo, String idempotencyKey, String traceId,
-                                     List<SignMaterial> materials) {
+public record UploadMaterialsCommand(String tenantCode, String signNo, String traceId, List<SignMaterial> materials) {
 }

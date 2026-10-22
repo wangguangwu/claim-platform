@@ -5,8 +5,8 @@ package com.claim.platform.application.usecase.command;
  *
  * @author wangguangwu
  */
-public record SubmitSignApplicationCommand(String tenantCode, String idempotencyKey, String traceId,
-                                           String externalApplyNo, String applicantName, String applicantInfo,
+public record SubmitSignApplicationCommand(String tenantCode, String traceId, String externalApplyNo,
+                                           String applicantName, String applicantInfo,
                                            String accidentPersonInfo, String mainInsuredInfo, String payeeInfo,
                                            String extJson) {
 }

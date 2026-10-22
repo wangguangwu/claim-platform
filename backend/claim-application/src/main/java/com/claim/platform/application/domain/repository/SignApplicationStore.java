@@ -19,6 +19,11 @@ public interface SignApplicationStore {
     Optional<SignApplication> findByTenantAndSignNo(String tenantCode, String signNo);
 
     /**
+     * 按租户和外部申请编号查找既有签收事实，用于天然业务幂等回放。
+     */
+    Optional<SignApplication> findByTenantAndExternalApplyNo(String tenantCode, String externalApplyNo);
+
+    /**
      * 加载申请和其未删除材料，用于租户隔离查询。
      *
      * @return 不存在时为空

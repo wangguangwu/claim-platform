@@ -1,19 +1,14 @@
 package com.claim.platform.application.infrastructure.persistence;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.claim.platform.application.domain.event.OutboxEvent;
 import com.claim.platform.application.domain.exception.ConcurrentSignApplicationModificationException;
 import com.claim.platform.application.domain.model.SignApplication;
 import com.claim.platform.application.domain.model.SignApplicationDetails;
 import com.claim.platform.application.domain.model.SignMaterial;
-import com.claim.platform.application.domain.repository.IdempotencyStore;
 import com.claim.platform.application.domain.repository.InteractionLogStore;
-import com.claim.platform.application.domain.repository.OutboxStore;
 import com.claim.platform.application.domain.repository.SignApplicationStore;
 import com.claim.platform.application.domain.repository.SignMaterialStore;
 import com.claim.platform.application.infrastructure.persistence.mapper.SignApplicationPersistenceMapper;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Repository;
@@ -25,31 +20,34 @@ import org.springframework.stereotype.Repository;
  * @author wangguangwu
  */
 @Repository
-public class SignIntakePersistenceAdapter implements SignApplicationStore, SignMaterialStore, IdempotencyStore,
-        InteractionLogStore, OutboxStore {
+public class SignIntakePersistenceAdapter implements SignApplicationStore, SignMaterialStore, InteractionLogStore {
 
     private final SignApplicationMapper applicationMapper;
     private final SignMaterialMapper materialMapper;
-    private final IdempotencyMapper idempotencyMapper;
     private final InteractionLogMapper interactionLogMapper;
-    private final OutboxEventMapper outboxEventMapper;
     private final SignApplicationPersistenceMapper persistenceMapper;
 
     public SignIntakePersistenceAdapter(SignApplicationMapper applicationMapper, SignMaterialMapper materialMapper,
-                                        IdempotencyMapper idempotencyMapper, InteractionLogMapper interactionLogMapper,
-                                        OutboxEventMapper outboxEventMapper,
+                                        InteractionLogMapper interactionLogMapper,
                                         SignApplicationPersistenceMapper persistenceMapper) {
         this.applicationMapper = applicationMapper;
         this.materialMapper = materialMapper;
-        this.idempotencyMapper = idempotencyMapper;
         this.interactionLogMapper = interactionLogMapper;
-        this.outboxEventMapper = outboxEventMapper;
         this.persistenceMapper = persistenceMapper;
     }
 
     @Override
     public Optional<SignApplication> findByTenantAndSignNo(String tenantCode, String signNo) {
         return Optional.ofNullable(findDO(tenantCode, signNo)).map(persistenceMapper::toDomain);
+    }
+
+    @Override
+    public Optional<SignApplication> findByTenantAndExternalApplyNo(String tenantCode, String externalApplyNo) {
+        return Optional.ofNullable(applicationMapper.selectOne(new LambdaQueryWrapper<SignApplicationDO>()
+                        .eq(SignApplicationDO::getTenantCode, tenantCode)
+                        .eq(SignApplicationDO::getExternalApplyNo, externalApplyNo)
+                        .eq(SignApplicationDO::isDeleted, false)))
+                .map(persistenceMapper::toDomain);
     }
 
     @Override
@@ -93,32 +91,8 @@ public class SignIntakePersistenceAdapter implements SignApplicationStore, SignM
     }
 
     @Override
-    public boolean tryAcquire(String tenantCode, String operation, String idempotencyKey, String requestHash) {
-        return idempotencyMapper.insertIgnore(tenantCode, operation, idempotencyKey, requestHash) == 1;
-    }
-
-    @Override
-    public Optional<IdempotencyRecord> find(String tenantCode, String operation, String idempotencyKey) {
-        return Optional.ofNullable(idempotencyMapper.find(tenantCode, operation, idempotencyKey))
-                .map(entity -> new IdempotencyRecord(entity.getRequestHash(), entity.getProcessingStatus(),
-                        entity.getResultSignNo()));
-    }
-
-    @Override
-    public void complete(String tenantCode, String operation, String idempotencyKey, String signNo) {
-        idempotencyMapper.markCompleted(tenantCode, operation, idempotencyKey, signNo);
-    }
-
-    @Override
     public void recordSuccess(String tenantCode, String signNo, String interactionType, String requestId, String traceId) {
         interactionLogMapper.insert(new InteractionLogDO(tenantCode, signNo, interactionType, requestId, traceId));
-    }
-
-    @Override
-    public void append(OutboxEvent event) {
-        outboxEventMapper.insert(new OutboxEventDO(event.eventId(), event.eventType(), event.eventVersion(),
-                event.tenantCode(), event.aggregateType(), event.aggregateId(), event.payload(), event.traceId(),
-                LocalDateTime.ofInstant(event.occurredAt(), ZoneOffset.UTC)));
     }
 
     private SignApplicationDO findDO(String tenantCode, String signNo) {

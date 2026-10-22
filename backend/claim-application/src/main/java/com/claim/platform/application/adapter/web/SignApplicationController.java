@@ -22,7 +22,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -51,17 +50,16 @@ public class SignApplicationController {
     }
 
     /**
-     * 接收签收申请；相同幂等键只创建一个签收事实。
+     * 接收签收申请；同一外部申请编号回放既有签收事实。
      *
      * @return 创建或回放后的申请结果
      */
     @PostMapping
     public ResponseEntity<ApiResult<SignApplicationResult>> create(
-            @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 128) String idempotencyKey,
             @Valid @RequestBody CreateSignApplicationRequest request, HttpServletRequest servletRequest) {
         GatewayRequestContext context = resolveContext(servletRequest);
         SignApplicationResult result = commandService.submit(new SubmitSignApplicationCommand(context.tenantCode(),
-                idempotencyKey, context.traceId(), request.externalApplyNo(), request.applicantName(),
+                context.traceId(), request.externalApplyNo(), request.applicantName(),
                 toJson(request.applicantInfo()), toJson(request.accidentPersonInfo()), toJson(request.mainInsuredInfo()),
                 toJson(request.payeeInfo()), toJson(request.extJson())));
         return ResponseEntity.ok(ApiResult.success(result, context.traceId()));
@@ -75,13 +73,12 @@ public class SignApplicationController {
     @PostMapping("/{signNo}/materials")
     public ResponseEntity<ApiResult<SignApplicationResult>> uploadMaterials(
             @PathVariable @NotBlank @Size(max = 64) String signNo,
-            @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 128) String idempotencyKey,
             @Valid @RequestBody UploadMaterialsRequest request, HttpServletRequest servletRequest) {
         GatewayRequestContext context = resolveContext(servletRequest);
         List<SignMaterial> materials = request.materials().stream().map(material -> new SignMaterial(request.batchNo(),
                 material.sequence(), material.type(), material.name(), material.path(), material.originalPath())).toList();
         SignApplicationResult result = commandService.uploadMaterials(new UploadMaterialsCommand(context.tenantCode(),
-                signNo, idempotencyKey, context.traceId(), materials));
+                signNo, context.traceId(), materials));
         return ResponseEntity.ok(ApiResult.success(result, context.traceId()));
     }
 

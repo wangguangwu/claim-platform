@@ -39,7 +39,6 @@ class SignApplicationControllerTest {
                 SignApplicationStatus.IMAGE_NOT_UPLOAD));
 
         mockMvc.perform(post("/api/v1/sign-applications")
-                        .header("Idempotency-Key", "receive-001")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"externalApplyNo\":\"EXT001\",\"applicantName\":\"张三\"}"))
                 .andExpect(status().isOk())

@@ -11,8 +11,6 @@ flowchart LR
     PORT --> DB[(sign_db)]
     DB --> APP_T[t_sign_application]
     DB --> MAT_T[t_sign_material]
-    DB --> IDEM_T[t_sign_idempotency]
-    DB --> OUTBOX_T[t_sign_outbox]
     DB --> LOG_T[t_sign_interaction_log]
 ```
 
@@ -22,7 +20,7 @@ flowchart LR
 
 ```text
 adapter/web Request DTO + trusted headers
-        ↓ 手工组装（租户、Trace、幂等键不可来自请求体）
+        ↓ 手工组装（租户、Trace 不可来自请求体）
 usecase Command / Query
         ↓ port
 infrastructure SignApplicationDO / SignMaterialDO
@@ -40,8 +38,8 @@ domain SignApplicationState / SignApplication 聚合 / SignMaterial 值对象
 | `t_sign_material` | Application Intake | 影像元数据 | 仅通过所属申请的租户范围写入和查询 |
 | `t_sign_problem` | Application Intake | 审核问题件预留事实 | 当前仅迁移建表，不提供写接口 |
 | `t_sign_interaction_log` | Application Intake | 不含材料原文的交互审计 | 关联租户、签收编号与 traceId |
-| `t_sign_idempotency` | Application Intake | 命令去重及结果回放 | `tenant_code + operation + idempotency_key` 唯一 |
-| `t_sign_outbox` | Application Intake | 原子事件投递意图 | `event_id` 唯一，待发布状态可重试 |
+
+签收表仅在本地 Docker 的 MySQL 数据卷首次创建时由 `docker/mysql/init/02-create-sign-tables.sql` 初始化；应用不包含 Schema 管理组件，也不会在启动时执行建表 SQL。
 
 ## 主状态机设计
 
@@ -63,8 +61,8 @@ stateDiagram-v2
 ## 核心链路设计
 
 1. Web Adapter 校验 `X-Claim-Service-Token`，解析 `X-Claim-Tenant` 和可选 `X-Trace-Id`；请求体无租户字段。
-2. 应用服务以 `tenant + operation + Idempotency-Key` 尝试创建幂等记录。已完成命令回放保存的结果；内容摘要不一致返回冲突；处理中返回可重试冲突。
-3. 应用服务加载或创建聚合，执行状态校验；仓储在一个 Spring 事务中保存聚合、材料、交互日志、Outbox 和幂等结果。
+2. 应用服务先以 `tenantCode + externalApplyNo` 查询既有申请，命中时回放既有 `signNo`；未命中时创建聚合。
+3. 仓储在一个 Spring 事务中保存申请或材料和交互日志；申请唯一键作为并发下的最终去重屏障。
 4. 查询强制使用 `tenantCode + signNo` 条件，避免跨租户可见。
 
 ## 分层与包结构
@@ -74,12 +72,12 @@ stateDiagram-v2
 ## 并发控制
 
 - 申请表使用 `version` 乐观锁，处理并发状态更新。
-- 幂等记录先占位为 `PROCESSING`；唯一索引保证相同键只有一个首请求。竞争请求收到 `IDEMPOTENCY_REQUEST_IN_PROGRESS` 后使用同键重试。
-- 外部申请编号的租户内唯一索引是最终去重屏障；唯一键冲突转换为稳定领域错误。
+- 外部申请编号的租户内唯一索引是申请签收的最终去重屏障；先查询命中时回放既有签收编号。
+- 原始材料表未包含批次唯一键，不将其伪装为请求级幂等能力；补材协议确认后再添加对应约束和状态机。
 
 ## 异步一致性与补偿
 
-写入事务同时落库 Outbox，不在事务中调用审核系统。后续发布器按 `PENDING → PUBLISHED/FAILED` 更新并基于 `event_id` 重试；消费者按 `event_id` 去重。发布连续失败后应转入死信或人工介入状态，该组件不在当前范围。
+当前功能不调用审核系统、不发布消息，只在本地事务中记录交互日志。审核同步、消息投递、补偿和死信机制在后续独立 Spec 中设计，届时再根据确认的 DDL 引入 Outbox。
 
 ## 接口契约
 
@@ -89,7 +87,7 @@ stateDiagram-v2
 | `POST` | `/api/v1/sign-applications/{signNo}/materials` | 批量登记材料；请求含 `batchNo` 和非空 `materials` |
 | `GET` | `/api/v1/sign-applications/{signNo}` | 查询当前租户申请和材料 |
 
-写接口均要求 `Idempotency-Key`。所有响应使用 `ApiResult`，Adapter 统一映射校验、领域与未知异常，并仅记录脱敏标识和 traceId。
+签收接口按 `tenantCode + externalApplyNo` 天然去重；材料接口不声称具备请求级幂等。所有响应使用 `ApiResult`，Adapter 统一映射校验、领域与未知异常，并仅记录脱敏标识和 traceId。
 
 ## 测试策略
 

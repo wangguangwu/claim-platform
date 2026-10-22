@@ -1,17 +1,13 @@
 package com.claim.platform.application.adapter.web;
 
-import com.claim.platform.application.domain.exception.IdempotencyKeyReusedException;
-import com.claim.platform.application.domain.exception.IdempotencyRequestInProgressException;
 import com.claim.platform.application.domain.exception.InvalidApplicationStatusException;
 import com.claim.platform.application.domain.exception.ConcurrentSignApplicationModificationException;
-import com.claim.platform.application.domain.exception.SignApplicationAlreadyExistsException;
 import com.claim.platform.application.domain.exception.SignApplicationNotFoundException;
 import com.claim.platform.common.web.ApiResult;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.ObjectError;
@@ -64,32 +60,6 @@ public class SignApplicationExceptionHandler {
     @ExceptionHandler(SignApplicationNotFoundException.class)
     public ResponseEntity<ApiResult<Void>> notFound(SignApplicationNotFoundException exception, HttpServletRequest request) {
         return failure(HttpStatus.NOT_FOUND, "SIGN_APPLICATION_NOT_FOUND", "签收申请不存在", traceId(request));
-    }
-
-    /**
-     * 返回外部申请编号重复的稳定冲突响应。
-     */
-    @ExceptionHandler({SignApplicationAlreadyExistsException.class, DataIntegrityViolationException.class})
-    public ResponseEntity<ApiResult<Void>> alreadyExists(RuntimeException exception, HttpServletRequest request) {
-        return failure(HttpStatus.CONFLICT, "SIGN_APPLICATION_ALREADY_EXISTS", "签收申请已存在", traceId(request));
-    }
-
-    /**
-     * 返回幂等键语义冲突响应。
-     */
-    @ExceptionHandler(IdempotencyKeyReusedException.class)
-    public ResponseEntity<ApiResult<Void>> idempotencyKeyReused(IdempotencyKeyReusedException exception,
-                                                                 HttpServletRequest request) {
-        return failure(HttpStatus.CONFLICT, "IDEMPOTENCY_KEY_REUSED", "幂等键已被用于不同请求", traceId(request));
-    }
-
-    /**
-     * 返回可用相同幂等键重试的处理中响应。
-     */
-    @ExceptionHandler(IdempotencyRequestInProgressException.class)
-    public ResponseEntity<ApiResult<Void>> idempotencyInProgress(IdempotencyRequestInProgressException exception,
-                                                                  HttpServletRequest request) {
-        return failure(HttpStatus.CONFLICT, "IDEMPOTENCY_REQUEST_IN_PROGRESS", "相同幂等请求正在处理中", traceId(request));
     }
 
     /**
