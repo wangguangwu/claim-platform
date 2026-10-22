@@ -2,7 +2,7 @@
 
 ## DS-PLT-001 本地数据库拓扑
 
-Docker Compose 仅运行一个 MySQL 8 容器；通过初始化脚本创建 `sign_db` 和 `push_db`。一个容器仅是本地开发便利，两个 schema 对应当前两个领域限界上下文的独立数据所有权，后续生产环境仍应独立部署和迁移。
+Docker Compose 仅运行一个 MySQL 8 容器；通过初始化脚本创建 `claim_intake_db` 和 `push_db`。一个容器仅是本地开发便利，两个 schema 对应当前两个领域限界上下文的独立数据所有权，后续生产环境仍应独立部署和迁移。
 
 ## DS-PLT-002 启动配置
 

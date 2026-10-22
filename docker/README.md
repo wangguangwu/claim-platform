@@ -4,7 +4,7 @@
 
 ## 本地 MySQL
 
-本地开发使用一个 MySQL 容器承载两个独立 schema：`sign_db` 和 `push_db`。这仅用于开发便利，不改变生产环境中各限界上下文独立维护数据库和迁移历史的约束。
+本地开发使用一个 MySQL 容器承载两个独立 schema：`claim_intake_db` 和 `push_db`。这仅用于开发便利，不改变生产环境中各限界上下文独立维护数据库和迁移历史的约束。
 
 ```bash
 cp docker/.env.example docker/.env
@@ -12,13 +12,13 @@ docker compose --env-file docker/.env -f docker/compose.yml up -d
 docker compose --env-file docker/.env -f docker/compose.yml ps
 ```
 
-首次创建数据卷时，`mysql/init/01-create-databases.sql` 会创建两个 schema 并授权本地 `claim` 用户。初始化脚本不会在已有数据卷上重复执行；若确实需要重新初始化，先确认本地数据可删除，再执行：
+首次创建数据卷时，`mysql/init/01-create-databases.sql` 会创建两个 schema 并授权本地 `claim` 用户；Claim Intake 的业务表由 `mysql/init/02-create-claim-intake-tables.sql` 在 `claim_intake_db` 中创建。初始化脚本不会在已有数据卷上重复执行；若确实需要重新初始化，先确认本地数据可删除，再执行：
 
 ```bash
 docker compose --env-file docker/.env -f docker/compose.yml down -v
 ```
 
-本地启动任意服务前需要先等待 MySQL health 为 `healthy`。各服务默认端口为 Gateway `8080`、Application Intake `8081` 和 Case Delivery `8082`。
+本地启动任意服务前需要先等待 MySQL health 为 `healthy`。各服务默认端口为 Gateway `8080`、Claim Intake `8081` 和 Case Delivery `8082`。
 
 ## 中间件边界
 
@@ -26,7 +26,7 @@ docker compose --env-file docker/.env -f docker/compose.yml down -v
 
 | 组件 | 最小职责 | 生产要求 |
 | --- | --- | --- |
-| MySQL 8.x | Application Intake、Case Delivery 各自独立数据库 | 主从或高可用、备份、慢查询与容量告警 |
+| MySQL 8.x | Claim Intake、Case Delivery 各自独立数据库 | 主从或高可用、备份、慢查询与容量告警 |
 | Redis 7.x | 幂等辅助、分布式锁、限流和资源配额 | Sentinel/Cluster、持久化与热点 Key 防护 |
 | RocketMQ 5.x | 领域事件、延迟重试、死信 | NameServer、Broker 高可用、Topic 与 ACL 规划 |
 | Nacos 2.x | 服务发现与配置 | 集群、命名空间隔离、配置变更审计 |

@@ -18,9 +18,9 @@
 ```mermaid
 flowchart LR
     FE[frontend\nVue 3 管理端] --> GW[backend/claim-gateway]
-    GW --> SIGN[backend/claim-application\nApplication Intake]
+    GW --> SIGN[backend/claim-intake-service\nClaim Intake]
     GW --> PUSH[backend/claim-case-delivery\nCase Delivery]
-    SIGN --> SIGNDB[(sign_db)]
+    SIGN --> INTAKE_DB[(claim_intake_db)]
     PUSH --> PUSHDB[(push_db)]
 ```
 
@@ -30,7 +30,7 @@ flowchart LR
 frontend/                         # 前端工程：页面、状态管理、API 客户端
 backend/                          # 后端 Maven 聚合工程
 ├── claim-gateway/                # 边缘层，不承载领域业务
-├── claim-application/            # Application Intake：申请签收限界上下文
+├── claim-intake-service/         # Claim Intake：理赔受理限界上下文
 ├── claim-case-delivery/          # Case Delivery：案件推送限界上下文
 └── claim-common/                 # 共享技术能力与版本化契约，不含领域规则
 specs/                            # 根约束与功能变更 Spec
@@ -44,8 +44,8 @@ AGENTS.md                         # Agent 规则路由与执行门禁
 
 | 限界上下文 | 模块 | 拥有的领域事实 | 对外责任 | 禁止事项 |
 | --- | --- | --- | --- | --- |
-| Application Intake | `claim-application` | 申请、材料、同步任务 | 签收申请、追踪材料处理、发起下游同步 | 审核案件、写入 Case Delivery 数据库 |
-| Case Delivery | `claim-case-delivery` | 案件、推送任务、回执、死信 | 接收任意来源案件并受控推送 | 假设案件必须由 Application Intake 创建、写入其数据库 |
+| Claim Intake | `claim-intake-service` | 受理、材料、同步任务 | 签收受理、追踪材料处理、发起下游同步 | 审核案件、写入 Case Delivery 数据库 |
+| Case Delivery | `claim-case-delivery` | 案件、推送任务、回执、死信 | 接收任意来源案件并受控推送 | 假设案件必须由 Claim Intake 创建、写入其数据库 |
 | Operations & Diagnosis | 待明确用例后新建独立模块，禁止放入 `claim-common` | 运营记录、诊断报告、人工确认审计 | 聚合展示、辅助诊断、提交受控动作请求 | 直接查询或写入其他限界上下文数据库 |
 | Edge & Platform | `claim-gateway` | 无领域事实 | 身份、租户识别、路由、限流、Trace | 领域编排、持久化领域状态 |
 | Platform Common | `claim-common` | 无领域事实 | 多租户上下文、Trace、通用错误、稳定的共享契约 | 放入申请、案件、策略、审核等领域模型 |

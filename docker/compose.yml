@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Copy docker/.env.example to docker/.env first}
-      MYSQL_DATABASE: sign_db
+      MYSQL_DATABASE: claim_intake_db
       MYSQL_USER: claim
       MYSQL_PASSWORD: ${CLAIM_DB_PASSWORD:?Copy docker/.env.example to docker/.env first}
     ports:

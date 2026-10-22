@@ -15,11 +15,11 @@
 
 ### FR-PLT-001 本地 MySQL
 
-WHEN 开发者依据 Docker 运行说明启动本地依赖 THEN THE SYSTEM SHALL 启动健康检查可见的 MySQL 8 实例，并初始化 `sign_db` 和 `push_db` 两个相互独立的数据库。
+WHEN 开发者依据 Docker 运行说明启动本地依赖 THEN THE SYSTEM SHALL 启动健康检查可见的 MySQL 8 实例，并初始化 `claim_intake_db` 和 `push_db` 两个相互独立的数据库。
 
 ### FR-PLT-002 最小可启动模块
 
-WHEN 开发者在本地 MySQL 已就绪的条件下启动 Gateway、Application Intake 或 Case Delivery 模块 THEN THE SYSTEM SHALL 以独立 Spring Boot 进程启动，并通过 Actuator health 端点报告存活状态。
+WHEN 开发者在本地 MySQL 已就绪的条件下启动 Gateway、Claim Intake 或 Case Delivery 模块 THEN THE SYSTEM SHALL 以独立 Spring Boot 进程启动，并通过 Actuator health 端点报告存活状态。
 
 ### FR-PLT-003 本地依赖边界
 

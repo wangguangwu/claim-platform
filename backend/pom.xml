@@ -13,7 +13,7 @@
   <modules>
     <module>claim-common</module>
     <module>claim-gateway</module>
-    <module>claim-application</module>
+    <module>claim-intake-service</module>
     <module>claim-case-delivery</module>
   </modules>
 </project>

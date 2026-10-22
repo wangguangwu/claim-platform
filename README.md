@@ -9,7 +9,7 @@ claim-platform/
 ├── frontend/                  # Vue 3 + TypeScript 管理端
 ├── backend/                   # Java 17 + Spring Boot 多模块后端
 │   ├── claim-gateway/         # 认证、租户识别、路由、限流、Trace
-│   ├── claim-application/     # Application Intake：申请签收限界上下文
+│   ├── claim-intake-service/  # Claim Intake：理赔受理限界上下文
 │   ├── claim-case-delivery/   # Case Delivery：案件推送限界上下文
 │   └── claim-common/          # 无领域规则的共享技术能力与稳定契约
 ├── docker/                    # Dockerfile、Compose 与本地容器资源
@@ -51,7 +51,7 @@ mvn verify
 ```bash
 mvn package
 java -jar backend/claim-gateway/target/claim-gateway-0.1.0-SNAPSHOT.jar
-java -jar backend/claim-application/target/claim-application-0.1.0-SNAPSHOT.jar
+java -jar backend/claim-intake-service/target/claim-intake-service-0.1.0-SNAPSHOT.jar
 java -jar backend/claim-case-delivery/target/claim-case-delivery-0.1.0-SNAPSHOT.jar
 ```
 

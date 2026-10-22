@@ -4,6 +4,7 @@
 
 - 后端模块必须遵守根需求的限界上下文、数据所有权和向内依赖分层；领域规则不得以跨模块工具类、跨库访问或共享实体的形式绕过边界。
 - 生产 Java 类型应位于其职责对应的 `domain`、`application`、`adapter` 或 `infrastructure` 层；依赖方向不明确时先更新功能设计。
+- 限界上下文根包不得与分层包同名（例如不得使用 `application` 作为根包名）；层包统一命名为 `adapter`、`application`、`domain`、`infrastructure`。
 - 配置、持久化实现、消息适配器与外部系统集成不得泄露至领域模型。
 
 ## 注释与署名

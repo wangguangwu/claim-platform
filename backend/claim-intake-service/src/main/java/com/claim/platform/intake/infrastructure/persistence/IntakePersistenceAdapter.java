@@ -1,0 +1,112 @@
+package com.claim.platform.intake.infrastructure.persistence;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.claim.platform.intake.domain.exception.ConcurrentIntakeModificationException;
+import com.claim.platform.intake.domain.model.ClaimIntake;
+import com.claim.platform.intake.domain.model.ClaimIntakeDetails;
+import com.claim.platform.intake.domain.model.IntakeMaterial;
+import com.claim.platform.intake.domain.repository.ClaimIntakeStore;
+import com.claim.platform.intake.domain.repository.IntakeMaterialStore;
+import com.claim.platform.intake.domain.repository.InteractionLogStore;
+import com.claim.platform.intake.infrastructure.persistence.mapper.ClaimIntakePersistenceMapper;
+import java.util.List;
+import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Repository;
+
+/**
+ * 将 Claim Intake 领域持久化端口映射为本上下文拥有的 MySQL/MyBatis-Plus 表。
+ * 所有写方法参加应用服务声明的同一个事务。
+ *
+ * @author wangguangwu
+ */
+@Repository
+public class IntakePersistenceAdapter implements ClaimIntakeStore, IntakeMaterialStore, InteractionLogStore {
+
+    private static final Logger log = LoggerFactory.getLogger(IntakePersistenceAdapter.class);
+
+    private final ClaimIntakeMapper intakeMapper;
+    private final IntakeMaterialMapper materialMapper;
+    private final InteractionLogMapper interactionLogMapper;
+    private final ClaimIntakePersistenceMapper persistenceMapper;
+
+    public IntakePersistenceAdapter(ClaimIntakeMapper intakeMapper, IntakeMaterialMapper materialMapper,
+                                    InteractionLogMapper interactionLogMapper,
+                                    ClaimIntakePersistenceMapper persistenceMapper) {
+        this.intakeMapper = intakeMapper;
+        this.materialMapper = materialMapper;
+        this.interactionLogMapper = interactionLogMapper;
+        this.persistenceMapper = persistenceMapper;
+    }
+
+    @Override
+    public Optional<ClaimIntake> findByTenantAndSignNo(String tenantCode, String signNo) {
+        return Optional.ofNullable(findDO(tenantCode, signNo)).map(persistenceMapper::toDomain);
+    }
+
+    @Override
+    public Optional<ClaimIntake> findByTenantAndExternalApplyNo(String tenantCode, String externalApplyNo) {
+        return Optional.ofNullable(intakeMapper.selectOne(new LambdaQueryWrapper<ClaimIntakeDO>()
+                        .eq(ClaimIntakeDO::getTenantCode, tenantCode)
+                        .eq(ClaimIntakeDO::getExternalApplyNo, externalApplyNo)
+                        .eq(ClaimIntakeDO::isDeleted, false)))
+                .map(persistenceMapper::toDomain);
+    }
+
+    @Override
+    public Optional<ClaimIntakeDetails> findDetailsByTenantAndSignNo(String tenantCode, String signNo) {
+        return Optional.ofNullable(findDO(tenantCode, signNo)).map(dataObject -> new ClaimIntakeDetails(
+                persistenceMapper.toDomain(dataObject),
+                materialMapper.selectList(new LambdaQueryWrapper<IntakeMaterialDO>()
+                                .eq(IntakeMaterialDO::getTenantCode, tenantCode)
+                                .eq(IntakeMaterialDO::getSignNo, signNo)
+                                .eq(IntakeMaterialDO::isDeleted, false)
+                                .orderByAsc(IntakeMaterialDO::getId))
+                        .stream().map(persistenceMapper::toDomain).toList()));
+    }
+
+    @Override
+    public boolean existsByTenantAndExternalApplyNo(String tenantCode, String externalApplyNo) {
+        return intakeMapper.exists(new LambdaQueryWrapper<ClaimIntakeDO>()
+                .eq(ClaimIntakeDO::getTenantCode, tenantCode)
+                .eq(ClaimIntakeDO::getExternalApplyNo, externalApplyNo)
+                .eq(ClaimIntakeDO::isDeleted, false));
+    }
+
+    @Override
+    public void save(ClaimIntake intake) {
+        ClaimIntakeDO existing = findDO(intake.tenantCode(), intake.signNo());
+        if (existing == null) {
+            intakeMapper.insert(persistenceMapper.toDO(intake));
+            log.debug("inserted new claim intake tenant={} signNo={}", intake.tenantCode(), intake.signNo());
+            return;
+        }
+        existing.setStatus(intake.status());
+        if (intakeMapper.updateById(existing) == 0) {
+            throw new ConcurrentIntakeModificationException();
+        }
+        log.debug("updated claim intake tenant={} signNo={}", intake.tenantCode(), intake.signNo());
+    }
+
+    @Override
+    public void saveAll(String tenantCode, String signNo, List<IntakeMaterial> materials) {
+        for (IntakeMaterial material : materials) {
+            materialMapper.insert(new IntakeMaterialDO(tenantCode, signNo, material.batchNo(), material.sequence(),
+                    material.type(), material.name(), material.path(), material.originalPath()));
+        }
+    }
+
+    @Override
+    public void recordSuccess(String tenantCode, String signNo, String interactionType, String requestId,
+                              String traceId) {
+        interactionLogMapper.insert(new InteractionLogDO(tenantCode, signNo, interactionType, requestId, traceId));
+    }
+
+    private ClaimIntakeDO findDO(String tenantCode, String signNo) {
+        return intakeMapper.selectOne(new LambdaQueryWrapper<ClaimIntakeDO>()
+                .eq(ClaimIntakeDO::getTenantCode, tenantCode)
+                .eq(ClaimIntakeDO::getSignNo, signNo)
+                .eq(ClaimIntakeDO::isDeleted, false));
+    }
+}
