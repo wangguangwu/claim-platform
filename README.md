@@ -1,213 +1,46 @@
-# README.md
+# claim-platform
 
-**项目名称：** 多租户理赔业务平台
-**项目代码：** claim-platform
+多租户理赔业务平台。平台覆盖线上申请签收、案件推送、运营查询与异常诊断；不承担案件审核、赔付决策或外部保司的核心业务处理。
 
-## 1. 建设目标
-
-搭建一套覆盖线上申请接入、案件推送、运营管理和异常诊断的多租户理赔业务平台。
-
-MVP 聚焦四件事：
-
-- **接得进来**：线上渠道的申请和材料能够稳定进入平台；
-- **送得出去**：不同来源的案件能够按照策略和资源约束推送至目标系统；
-- **看得清楚**：运营能够统一查看申请、案件、签收、推送和运行状态；
-- **查得明白**：发生异常时，Agent 能够辅助定位原因并给出处置建议。
-
-业务模型：
+## 项目结构
 
 ```text
-线上申请
-    │
-    └─ 一个申请可关联多个案件
-                    │
-                    ▼
-                  案件
-              ┌─────┴─────┐
-              │           │
-           线上案件      线下案件
+claim-platform/
+├── frontend/                  # Vue 3 + TypeScript 管理端
+├── backend/                   # Java 17 + Spring Boot 多模块后端
+│   ├── claim-gateway/         # 认证、租户识别、路由、限流、Trace
+│   ├── claim-application/     # Application Intake：申请签收限界上下文
+│   ├── claim-case-delivery/   # Case Delivery：案件推送限界上下文
+│   ├── claim-operations/      # Operations：运营与异常诊断限界上下文
+│   └── claim-common/          # 无领域规则的共享技术能力与稳定契约
+├── docker/                    # Dockerfile、Compose 与本地容器资源
+├── specs/                     # 项目根约束和功能变更 Spec
+├── standards/                 # DDD、代码、Spec、提交等工程规范
+├── AGENTS.md                  # Agent 规则路由与执行门禁
+└── README.md                  # 项目入口与治理导航
 ```
 
-平台不承担案件审核，审核或其他业务处理由外部业务系统负责。
+## 技术基线
 
-## 2. 技术栈
+- 后端：Java 17、Spring Boot 3.2、Spring Cloud、Spring Cloud Alibaba、MySQL、Redis、RocketMQ、XXL-Job。
+- 前端：Vue 3、TypeScript、Vite、Pinia、Vue Router、Axios。
+- 可观测：OpenTelemetry、Prometheus、Grafana、Loki。
+- 容器：Docker、Docker Compose。
 
-- 后端：Java 17 + Spring Boot 3.x + Spring Cloud Alibaba + MySQL + Redis + RocketMQ + XXL-Job
-- 前端：Vue 3 + TypeScript + Vite
-- 可观测：Prometheus + Grafana + Loki + OpenTelemetry
-- AI：LLM + Agent + Tool Calling
-- 环境：Docker + Docker Compose
+## 工程治理与渐进披露
 
-## 3. 总体架构
+| 文件或目录 | 职责 | 是否作为实现依据 |
+| --- | --- | --- |
+| [specs/requirements.md](specs/requirements.md) | 项目稳定业务与架构约束 | 是，优先级最高 |
+| `specs/<feature-name>/` | 功能需求、设计、任务和验收证据 | 是，不得与根需求冲突 |
+| [standards/](standards/README.md) | DDD、Spec Coding、语言、前端和提交规范 | 是，按当前任务增量读取 |
+| [AGENTS.md](AGENTS.md) | 指定任务需要读取哪些规范及执行门禁 | 是，作为规则入口 |
+| `README.md` | 项目导航和技术基线 | 否 |
 
-```text
-                           claim-web
-                               │
-                               ▼
-                        claim-gateway
-                               │
-               ┌───────────────┼───────────────┐
-               ▼               ▼               ▼
-          claim-sign       claim-push      claim-manage
-          申请签收           案件推送          运营管理
-                                               │
-                                      ┌────────┴────────┐
-                                      ▼                 ▼
-                                  Monitoring           Agent
+新增、修改、重构或修复功能时，先阅读根需求及对应功能 Spec，再按 [AGENTS.md](AGENTS.md) 的路由加载相关规范。不要为简单任务加载无关规范，也不要以 README 替代 Spec 或标准。
 
-                         claim-support
-                               │
-                         公共基础能力
+## 构建校验
+
+```bash
+mvn verify
 ```
-
-业务关系：
-
-```text
-线上渠道
-    │
-    ▼
-claim-sign
-    │
-    ▼
-线上申请
-    │
-    └─ 一个申请可关联多个案件
-                    │
-                    ▼
-                  案件池
-              ┌─────┴─────┐
-              │           │
-           线上案件      线下案件
-              │           │
-              └─────┬─────┘
-                    ▼
-               claim-push
-                    │
-                    ▼
-              外部保司 / 系统
-
-claim-manage
-├─ 申请管理
-├─ 案件管理
-├─ 推送管理
-├─ 运行监控
-└─ Agent 异常诊断
-```
-
-## 4. 模块职责
-
-| 模块              | 定位               | 核心职责                                                |
-| ----------------- | ------------------ | ------------------------------------------------------- |
-| **claim-web**     | 统一管理端         | 申请、案件、推送、运行状态和诊断结果展示                |
-| **claim-gateway** | 统一服务入口       | 鉴权、租户识别、路由、限流、Trace 透传                  |
-| **claim-sign**    | 线上申请签收平台   | 申请接入、材料处理、幂等签收、状态跟踪、下游同步        |
-| **claim-push**    | 案件推送调度平台   | 案件调度、资源控制、多协议推送、回执处理、异常恢复      |
-| **claim-manage**  | 运营与智能诊断平台 | 申请与案件聚合查询、运行管理、异常排查、Agent 诊断      |
-| **claim-support** | 公共基础能力       | 多租户上下文、Trace/MDC、统一异常、上下文透传、日志规范 |
-
-## 5. 核心链路
-
-### 5.1 申请签收
-
-```text
-线上渠道
-→ Gateway
-→ Sign
-→ 申请校验与幂等签收
-→ 材料处理
-→ 下游业务系统同步
-→ Manage 查询展示
-```
-
-Sign 负责申请进入平台后的签收过程，不承担案件审核。
-
-### 5.2 案件推送
-
-```text
-线上案件 / 线下案件
-→ Push
-→ 策略判断与资源控制
-→ 外部保司 / 系统
-→ 回执处理
-→ Manage 查询展示
-```
-
-Push 面向案件运行，不依赖案件必须来源于 Sign。
-
-### 5.3 异常诊断
-
-```text
-异常申请 / 异常案件 / 异常推送
-→ Manage
-→ Agent
-→ 查询业务数据 / 日志 / 运行信息
-→ 输出异常原因
-→ 输出判断依据
-→ 给出处置建议
-```
-
-涉及业务变更的操作由人工确认后执行。
-
-## 6. 多租户设计
-
-- **租户识别**：Gateway 统一识别租户，全链路透传租户上下文；
-- **数据隔离**：申请、案件和推送数据均携带租户维度，各服务保持独立数据边界；
-- **资源隔离**：Gateway 提供租户流量治理，Push 提供租户资源控制和热点隔离；
-- **配置隔离**：接入协议、推送策略和相关业务配置按租户管理；
-- **观测隔离**：日志和业务指标携带租户维度，支持按租户查询和分析。
-
-## 7. 关键设计原则
-
-### 7.1 业务边界
-
-```text
-claim-sign
-└─ 管申请
-
-claim-push
-└─ 管案件推送
-
-claim-manage
-└─ 管查询、运营和诊断
-```
-
-Sign、Push、Manage 独立运行，各自维护自己的业务数据。
-
-Manage 通过服务接口聚合 Sign 和 Push，不直接访问其他服务数据库。
-
-### 7.2 可靠性
-
-核心链路具备：
-
-- 幂等
-- 重试
-- 补偿
-- 状态可追踪
-- 异常可人工介入
-
-### 7.3 可观测性
-
-统一建设 Metrics、Logs、Trace。
-
-核心上下文携带：
-
-```text
-traceId
-tenantId
-applicationNo
-caseNo
-taskId
-```
-
-支持从申请或案件快速定位完整业务过程和技术日志。
-
-### 7.4 Agent
-
-Agent 负责：
-
-- 信息收集
-- 异常分析
-- 判断依据
-- 处置建议
-
-Agent 不直接修改核心业务数据，写操作通过人工确认后调用原有业务能力执行。
