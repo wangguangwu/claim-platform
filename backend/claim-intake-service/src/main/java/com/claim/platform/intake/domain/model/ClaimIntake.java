@@ -1,5 +1,6 @@
 package com.claim.platform.intake.domain.model;
 
+import com.claim.platform.intake.domain.exception.ConcurrentIntakeModificationException;
 import com.claim.platform.intake.domain.exception.InvalidIntakeStatusException;
 import com.claim.platform.intake.domain.model.person.AccidentPerson;
 import com.claim.platform.intake.domain.model.person.Applicant;
@@ -50,15 +51,15 @@ public final class ClaimIntake {
     /**
      * 建立新的签收申请，所有新申请均从待上传材料状态开始。
      *
-     * @param tenantCode 当前受信任租户
-     * @param signNo 平台签收编号
+     * @param tenantCode      当前受信任租户
+     * @param signNo          平台签收编号
      * @param externalApplyNo 外部申请编号
-     * @param applicantName 申请人姓名（冗余存储用于检索）
-     * @param applicant 申请人领域对象，可为 null
-     * @param accidentPerson 出险人领域对象，可为 null
-     * @param mainInsured 主被保险人领域对象，可为 null
-     * @param payee 领款人领域对象，可为 null
-     * @param extJson 扩展信息 JSON 字符串
+     * @param applicantName   申请人姓名（冗余存储用于检索）
+     * @param applicant       申请人领域对象，可为 null
+     * @param accidentPerson  出险人领域对象，可为 null
+     * @param mainInsured     主被保险人领域对象，可为 null
+     * @param payee           领款人领域对象，可为 null
+     * @param extJson         扩展信息 JSON 字符串
      * @return 新申请聚合
      */
     public static ClaimIntake create(String tenantCode, String signNo, String externalApplyNo, String applicantName,
@@ -104,16 +105,45 @@ public final class ClaimIntake {
         status = IntakeStatus.IMAGE_UPLOADED;
     }
 
-    public String tenantCode() { return tenantCode; }
-    public String signNo() { return signNo; }
-    public String externalApplyNo() { return externalApplyNo; }
-    public String applicantName() { return applicantName; }
-    public Applicant applicant() { return applicant; }
-    public AccidentPerson accidentPerson() { return accidentPerson; }
-    public MainInsured mainInsured() { return mainInsured; }
-    public Payee payee() { return payee; }
-    public String extJson() { return extJson; }
-    public IntakeStatus status() { return status; }
+    public String tenantCode() {
+        return tenantCode;
+    }
+
+    public String signNo() {
+        return signNo;
+    }
+
+    public String externalApplyNo() {
+        return externalApplyNo;
+    }
+
+    public String applicantName() {
+        return applicantName;
+    }
+
+    public Applicant applicant() {
+        return applicant;
+    }
+
+    public AccidentPerson accidentPerson() {
+        return accidentPerson;
+    }
+
+    public MainInsured mainInsured() {
+        return mainInsured;
+    }
+
+    public Payee payee() {
+        return payee;
+    }
+
+    public String extJson() {
+        return extJson;
+    }
+
+    public IntakeStatus status() {
+        return status;
+    }
 
     /**
      * 导出不变量校验后的领域状态，供基础设施层转换为持久化对象。
