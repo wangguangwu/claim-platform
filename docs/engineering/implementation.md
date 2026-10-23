@@ -12,7 +12,7 @@
 
 - 职责必须能用一句话说清；说不清就并入已有类或继续拆需求，不建"什么都干"的类。
 - 放入正确模块和分层，位置与依赖方向按 `docs/specs/baseline.md` 的架构约束；不创建无实际用途的空包。
-- 使用统一命名后缀，同一项目不混用职责不明确的近似命名（例如同时存在 `ClaimIntakeMapper` 与 `ClaimIntakePersistenceMapper`，一个表示 MyBatis Mapper、一个表示对象转换时应分别命名为 `ClaimIntakeMapper` 和 `ClaimIntakePersistenceConverter`）。
+- 使用统一命名后缀，同一项目不混用职责不明确的近似命名（例如同时存在 `SignMapper` 与 `SignPersistenceMapper`，一个表示 MyBatis Mapper、一个表示对象转换时应分别命名为 `SignMapper` 和 `SignPersistenceConverter`）。
 
 | 类型 | 后缀 |
 | --- | --- |
@@ -45,7 +45,7 @@
 
 - 修改核心业务逻辑必须同步新增或更新测试。
 - 测试至少覆盖：正常路径、关键边界、异常路径，以及需求明确涉及的幂等、重复请求或并发场景。
-- 测试名称直接体现"业务场景 + 条件 + 预期结果"，例如 `shouldUploadMaterialsWhenStatusIsImageNotUpload`、`shouldThrowWhenClaimIntakeNotFound`。
+- 测试名称直接体现"业务场景 + 条件 + 预期结果"，例如 `shouldUploadMaterialsWhenStatusIsImageNotUpload`、`shouldThrowWhenSignNotFound`。
 - 不得为了提高覆盖率编写没有有效断言的测试。
 
 ## 5. 改完后的代码自检
@@ -73,7 +73,7 @@
 
 ### 异常
 
-- 异常要具备明确语义，例如 `ClaimIntakeNotFoundException`、`InvalidIntakeStatusException`、`ConcurrentIntakeModificationException`；不直接 `throw new RuntimeException("error")`。
+- 异常要具备明确语义，例如 `SignNotFoundException`、`InvalidSignStatusException`、`ConcurrentSignModificationException`；不直接 `throw new RuntimeException("error")`。
 - 只在以下场景主动捕获：转换为当前业务能理解的异常、补充必要业务上下文、执行明确的降级或补偿、隔离第三方 SDK 或外部系统异常。
 - 重新抛出必须保留原始异常；禁止 `catch (Exception e) { throw new RuntimeException(e.getMessage()); }` 这类丢失堆栈与上下文的写法。
 

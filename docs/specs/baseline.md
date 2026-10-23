@@ -8,7 +8,8 @@
 
 - 平台服务于多租户理赔业务，当前覆盖线上申请签收与案件推送。
 - 一个线上申请可以关联多个案件；案件也可以独立于申请由线下来源进入平台。
-- Claim Intake 负责签收受理、材料登记与下游同步发起；Case Delivery 负责接收任意来源案件并受控推送。
+- 理赔签收（Sign）上下文负责签收受理、材料登记与下游同步发起；案件推送（Push）上下文负责接收任意来源案件并受控推送。
+- 一次理赔申请签收在领域内统一称为 `Sign`，其平台标识统一称为 `SignNo`，不再使用"受理"作为领域词汇。
 - Agent 只负责信息收集、证据归纳、异常分析和处置建议。
 - 运营查询与异常诊断在出现明确用例后作为独立限界上下文建设。
 
@@ -49,21 +50,23 @@
 
 ```mermaid
 flowchart LR
-    FE[frontend\nVue 3 管理端] --> GW[backend/claim-gateway]
-    GW --> SIGN[backend/claim-intake-service\nClaim Intake]
-    GW --> PUSH[backend/claim-case-delivery\nCase Delivery]
+    FE[claim-platform-frontend\nVue 3 管理端] --> GW[claim-platform-backend/claim-gateway]
+    GW --> SIGN[claim-platform-backend/claim-sign-service\n理赔签收]
+    GW --> PUSH[claim-platform-backend/claim-case-push-service\n案件推送]
     SIGN --> INTAKE_DB[(claim_intake_db)]
     PUSH --> PUSHDB[(push_db)]
 ```
 
+后端只有网关、签收服务、案件推送服务三个可执行服务；`claim-common` 是无领域事实的技术共享模块，不计入服务结构，也不得承载业务规则。
+
 工程边界：
 
 ```text
-frontend/                         # 前端工程：页面、状态管理、API 客户端
-backend/                          # 后端 Maven 聚合工程
+claim-platform-frontend/          # 前端工程：页面、状态管理、API 客户端
+claim-platform-backend/           # 后端 Maven 聚合工程
 ├── claim-gateway/                # 边缘层，不承载领域业务
-├── claim-intake-service/         # Claim Intake：理赔受理限界上下文
-├── claim-case-delivery/          # Case Delivery：案件推送限界上下文
+├── claim-sign-service/           # 理赔签收：签收、材料、问题件、撤销
+├── claim-case-push-service/      # 案件推送：推送任务、推送记录、回执、策略
 └── claim-common/                 # 共享技术能力与版本化契约，不含领域规则
 docs/
 ├── specs/                        # 项目基线与功能 Spec
@@ -77,11 +80,15 @@ docs/
 
 | 限界上下文 | 模块 | 拥有的领域事实 | 对外责任 | 禁止事项 |
 | --- | --- | --- | --- | --- |
-| Claim Intake | `claim-intake-service` | 受理、材料、同步任务 | 签收受理、追踪材料处理、发起下游同步 | 审核案件、写入 Case Delivery 数据库 |
-| Case Delivery | `claim-case-delivery` | 案件、推送任务、回执、死信 | 接收任意来源案件并受控推送 | 假设案件必须由 Claim Intake 创建、写入其数据库 |
+| 理赔签收（Sign） | `claim-sign-service` | 签收、材料、问题件、交互日志、同步任务 | 签收受理、追踪材料处理、发起下游同步 | 审核案件、写入案件推送上下文数据库 |
+| 案件推送（Push） | `claim-case-push-service` | 案件、推送任务、推送记录、回执、死信 | 接收任意来源案件并受控推送 | 假设案件必须由理赔签收创建、写入其数据库 |
 | Operations & Diagnosis | 待明确用例后新建独立模块，禁止放入 `claim-common` | 运营记录、诊断报告、人工确认审计 | 聚合展示、辅助诊断、提交受控动作请求 | 直接查询或写入其他限界上下文数据库 |
-| Edge & Platform | `claim-gateway` | 无领域事实 | 身份、租户识别、路由、限流、Trace | 领域编排、持久化领域状态 |
+| Edge & Platform | `claim-gateway` | 无领域事实 | 身份、租户识别、验签与加解密、协议适配、请求与响应转换、路由、限流、Trace | 领域编排、持久化领域状态 |
 | Platform Common | `claim-common` | 无领域事实 | 多租户上下文、Trace、通用错误、稳定的共享契约 | 放入申请、案件、策略、审核等领域模型 |
+
+- 租户接入差异通过 `TenantProtocolAdapter` 表达，保司推送差异通过 `InsurerPushAdapter` 表达；外部协议、字段编码与错误码的转换必须在适配器与反腐层内终止。
+- 外部请求经网关后转换为平台标准模型，下游服务只面对标准模型，不按租户分支实现业务规则。
+- 已知偏差：租户协议适配目前仍位于 `claim-sign-service` 的接入层，网关侧的协议适配、验签与加解密尚未实现；该收敛由 Gateway 专项 Spec 承担，新增租户差异不得继续落入业务服务。
 
 - 每个限界上下文独立拥有自己的数据库及其建表、变更脚本；当前本地开发环境由 Docker 初始化脚本创建 Schema。
 - 跨上下文只能通过版本化同步 API、领域事件或显式的反腐层通信；禁止跨库 SQL、跨模块 Repository、共享业务实体和共享业务表。
@@ -106,7 +113,8 @@ interfaces
 └─ message        MQ 消费者
 
 application
-├─ service        Application Service：接收 Command、加载领域对象、控制事务边界、返回 Result
+├─ handler        命令处理器：一命令一入口，接收 Command、加载领域对象、控制事务边界、返回 Result
+├─ service        查询服务与应用内支撑服务：`XxxQueryService` 承载读取用例，其余 Service 只做事务实例创建、发号、对账等内部编排
 ├─ command        写入用例输入，不含 Web / MyBatis / 外部协议对象
 ├─ result         应用对外返回结果
 ├─ port           需要外部能力（锁、缓存、发号、存储）时定义的端口
@@ -128,6 +136,7 @@ infrastructure
 
 - `domain` 不依赖 Spring MVC、JPA、MyBatis、Redis、RocketMQ 或 HTTP 客户端。
 - `application` 编排用例与管理事务，不承载 HTTP / 消息协议细节；流程编排不放 Domain Service。
+- 写入用例以命令与命令处理器成对组织，读取用例以查询服务承载并按业务归属命名（如 `SignQueryService`、`MaterialQueryService`）；不建立独立查询服务模块，同一应用服务不同时承担写入与读取。
 - `interfaces` 把外部输入转换为应用命令或查询并完成鉴权与协议校验：Controller 只做接收请求、基础参数校验、取上下文、Request → Command、调用 Application Service、Result → Response，不直接访问 Repository、Mapper 或数据库；JobHandler 与 Consumer 只做协议解析、参数获取、调用应用服务和记录执行结果，业务状态判断与补偿规则不放在入口。
 - `infrastructure` 实现仓储、消息发布、缓存端口和外部系统反腐层；外部 DTO、错误码与协议细节必须在反腐层终止，不穿透到领域层。
 - Repository 面向聚合，Mapper 面向数据表；数据库表的拆分不决定领域模型的拆分，聚合加载需要哪些表由 Repository 负责重建。
@@ -143,8 +152,8 @@ infrastructure
 
 前端架构：
 
-- 前端位于 `frontend/`，只通过 Gateway 暴露的版本化 API 访问后端，不直连领域服务、数据库、消息系统或外部保司系统。
-- 前端按业务能力而不是后端服务名组织页面和状态；申请、案件、推送、运行监控和诊断可作为独立功能域。
+- 前端位于 `claim-platform-frontend/`，只通过 Gateway 暴露的版本化 API 访问后端，不直连领域服务、数据库、消息系统或外部保司系统。
+- 前端按业务能力而不是后端服务名组织页面和状态；签收、材料、问题件、案件、推送与租户配置可作为独立功能域。
 - API 客户端统一处理认证、`traceId` 回传、稳定错误码与租户上下文，不得由单个页面自行拼接鉴权或租户逻辑。
 - 前端不得保存外部系统明文凭证、材料原文或可跨租户复用的敏感缓存。
 
@@ -152,7 +161,7 @@ infrastructure
 
 - Gateway 按租户、调用方和路由执行认证、限流和 Trace 透传；Push 按租户、目标系统和协议适配器隔离并发与配额。
 - 配置规则按环境和租户隔离，变更必须记录变更人、时间、生效范围和前后值摘要。
-- 核心请求、任务、消息和外部调用必须关联 `traceId`、`tenantId`，并在已知时关联 `applicationNo`、`caseNo`、`taskId`。
+- 核心请求、任务、消息和外部调用必须关联 `traceId`、`tenantId`，并在已知时关联 `signNo`、`externalApplyNo`、`caseNo`、`taskId`。
 - Metrics、Logs、Traces 必须支持按服务、租户和任务状态定位；失败、重试、死信、积压、限流和外部依赖错误必须可告警。
 - 聚合查询发生局部依赖失败时，必须返回已获得数据、失败来源和 `traceId`，不得将局部失败伪装为空结果。
 
@@ -174,5 +183,6 @@ infrastructure
 
 | 日期 | 变更 | 评审 |
 | --- | --- | --- |
+| 2026-10-23 | 按定稿的目标架构对齐工程边界：目录改为 `claim-platform-frontend` / `claim-platform-backend`，业务服务收敛为 `claim-gateway`、`claim-sign-service`、`claim-case-push-service`，`claim-common` 明确为非业务技术共享模块；限界上下文由 Claim Intake / Case Delivery 更名为理赔签收 / 案件推送，领域词汇统一为 `Sign`、`SignNo`、`Material`、`ClaimIssue`、`PushTask`、`PushReceipt`；application 层拆出 `handler`（命令处理器）与 `service`（查询服务与内部编排）；补齐 `TenantProtocolAdapter` 与 `InsurerPushAdapter` 的适配边界要求，并登记租户协议适配暂留签收服务的已知偏差 | 用户决策：分阶段，先结构对齐；命令用 Handler、查询用 QueryService；保留 `claim-common`；租户适配本轮不迁网关 |
 | 2026-10-23 | 细化多租户唯一约束与查询条款：允许平台级全局业务编号，并限定发号所需的跨租户聚合最大值读取 | 项目级评审通过 |
 | 2026-10-23 | 由原 `specs/requirements.md` 与 `standards/` 重组为 `docs/specs/baseline.md` + `docs/engineering/`：合并重复的架构与分层规则，恢复 Feature 级三件套 Spec，专项规范不再单独立文件 | 用户决策：保持 MVP，每条规则单一归属文件 |
