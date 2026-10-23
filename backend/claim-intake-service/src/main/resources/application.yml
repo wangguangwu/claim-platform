@@ -30,6 +30,16 @@ claim:
         wait-time: ${CLAIM_INTAKE_LOCK_WAIT_TIME:3s}
         lease-time: ${CLAIM_INTAKE_LOCK_LEASE_TIME:10s}
         key-prefix: "${CLAIM_INTAKE_LOCK_KEY_PREFIX:claim:intake:submit:}"
+    number:
+      zone: ${CLAIM_INTAKE_NUMBER_ZONE:Asia/Shanghai}
+      key-prefix: "${CLAIM_INTAKE_NUMBER_KEY_PREFIX:sign:no:}"
+      counter-ttl: ${CLAIM_INTAKE_NUMBER_COUNTER_TTL:3d}
+      max-attempts: ${CLAIM_INTAKE_NUMBER_MAX_ATTEMPTS:3}
+      recovery-lock-wait-time: ${CLAIM_INTAKE_NUMBER_RECOVERY_LOCK_WAIT_TIME:1s}
+      fallback-enabled: ${CLAIM_INTAKE_NUMBER_FALLBACK_ENABLED:true}
+      reconciliation-interval: ${CLAIM_INTAKE_NUMBER_RECONCILIATION_INTERVAL:5m}
+      reconciliation-initial-delay: ${CLAIM_INTAKE_NUMBER_RECONCILIATION_INITIAL_DELAY:0s}
+      reconciliation-days: ${CLAIM_INTAKE_NUMBER_RECONCILIATION_DAYS:2}
 
 server:
   port: ${SERVER_PORT:8081}

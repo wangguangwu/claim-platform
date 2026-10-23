@@ -20,6 +20,16 @@ docker compose --env-file docker/.env -f docker/compose.yml down -v
 
 本地启动 Claim Intake 前需要先等待 MySQL 与 Redis health 都为 `healthy`；Redis 默认映射宿主机 `6379`。Claim Intake 可通过 `REDIS_HOST`、`REDIS_PORT` 覆盖连接地址，默认分别为 `localhost`、`6379`，并由 Spring Data Redis 与 Redisson 共享该单节点连接配置。各服务默认端口为 Gateway `8080`、Claim Intake `8081` 和 Case Delivery `8082`。
 
+### 存量库迁移
+
+已有 MySQL 数据卷不会自动执行新增的初始化脚本。签收号全局唯一索引 `uk_sign_no(sign_no)` 需要手工执行迁移：
+
+```bash
+mysql -h 127.0.0.1 -u claim -p < docker/mysql/migration/20261023-add-uk-sign-no.sql
+```
+
+脚本先检查 `t_claim_intake` 是否存在重复 `sign_no`，存在重复时中止并要求人工处理；目标索引已存在时跳过，可重复执行。Claim Intake 启动时会校验该索引，缺失时拒绝启动。
+
 ## 中间件边界
 
 当前 Compose 提供 MySQL 和供 Claim Intake 使用的 Redis。Nacos、RocketMQ、XXL-Job 和可观测组件尚未进入本地运行闭环，因此各服务的默认本地配置不会因连接这些依赖而启动失败；启用对应能力时再以独立 Spec 增加受控配置。

@@ -37,7 +37,12 @@ public interface ClaimIntakeStore {
     boolean existsByTenantAndExternalApplyNo(String tenantCode, String externalApplyNo);
 
     /**
-     * 保存创建或状态变更后的聚合；实现必须遵从调用方事务边界。
+     * 严格插入新聚合；编号或幂等键重复时由数据库唯一键拒绝并抛出持久化异常。
+     */
+    void insert(ClaimIntake intake);
+
+    /**
+     * 保存状态变更后的既有聚合；实现必须遵从调用方事务边界。
      */
     void save(ClaimIntake intake);
 }

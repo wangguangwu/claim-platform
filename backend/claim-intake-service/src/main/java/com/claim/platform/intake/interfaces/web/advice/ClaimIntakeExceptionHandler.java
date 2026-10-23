@@ -1,6 +1,8 @@
 package com.claim.platform.intake.interfaces.web.advice;
 
 import com.claim.platform.intake.application.exception.IntakeSubmissionInProgressException;
+import com.claim.platform.intake.application.exception.SignNoSequenceExhaustedException;
+import com.claim.platform.intake.application.exception.SignNoUnavailableException;
 import com.claim.platform.intake.domain.exception.InvalidIntakeStatusException;
 import com.claim.platform.intake.domain.exception.ConcurrentIntakeModificationException;
 import com.claim.platform.intake.domain.exception.ClaimIntakeNotFoundException;
@@ -19,6 +21,7 @@ import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.ObjectError;
@@ -137,6 +140,30 @@ public class ClaimIntakeExceptionHandler {
     public ResponseEntity<ApiResult<Void>> concurrentModification(ConcurrentIntakeModificationException exception,
                                                                   HttpServletRequest request) {
         return failure(HttpStatus.CONFLICT, "CLAIM_INTAKE_CONCURRENT_MODIFICATION", "签收申请已被并发修改", traceId(request));
+    }
+
+    /**
+     * 返回签收号服务暂时不可用，并提示调用方使用相同幂等键退避重试。
+     */
+    @ExceptionHandler(SignNoUnavailableException.class)
+    public ResponseEntity<ApiResult<Void>> signNoUnavailable(SignNoUnavailableException exception,
+                                                             HttpServletRequest request) {
+        String traceId = traceId(request);
+        LOGGER.warn("claim intake sign no unavailable reason={} traceId={}", exception.reason(), traceId);
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .header(HttpHeaders.RETRY_AFTER, "5")
+                .body(ApiResult.failure("INTAKE_NUMBER_UNAVAILABLE", "签收号服务暂不可用，请稍后重试", traceId));
+    }
+
+    /**
+     * 返回当日签收号耗尽，明确不可通过重试恢复。
+     */
+    @ExceptionHandler(SignNoSequenceExhaustedException.class)
+    public ResponseEntity<ApiResult<Void>> signNoExhausted(SignNoSequenceExhaustedException exception,
+                                                           HttpServletRequest request) {
+        String traceId = traceId(request);
+        LOGGER.error("claim intake sign no exhausted traceId={}", traceId);
+        return failure(HttpStatus.SERVICE_UNAVAILABLE, "INTAKE_NUMBER_EXHAUSTED", "今日签收号已用尽，请联系平台", traceId);
     }
 
     /**

@@ -20,6 +20,7 @@ CREATE TABLE `t_claim_intake` (
 	`updated_at` DATETIME ( 3 ) NOT NULL DEFAULT CURRENT_TIMESTAMP ( 3 ) ON UPDATE CURRENT_TIMESTAMP ( 3 ) COMMENT '更新时间',
 	`is_deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '是否删除：0-否，1-是',
 	PRIMARY KEY ( `id` ),
+	UNIQUE KEY `uk_sign_no` ( `sign_no` ),
 	UNIQUE KEY `uk_tenant_sign_no` ( `tenant_code`, `sign_no` ),
 	UNIQUE KEY `uk_tenant_external_apply_no` ( `tenant_code`, `external_apply_no` ),
 	KEY `idx_tenant_status_created_at` ( `tenant_code`, `intake_status`, `created_at` ),

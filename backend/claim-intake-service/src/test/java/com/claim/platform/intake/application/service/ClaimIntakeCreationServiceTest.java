@@ -71,7 +71,7 @@ class ClaimIntakeCreationServiceTest {
 
     private ClaimIntake captureSavedIntake() {
         ArgumentCaptor<ClaimIntake> captor = ArgumentCaptor.forClass(ClaimIntake.class);
-        verify(intakeStore).save(captor.capture());
+        verify(intakeStore).insert(captor.capture());
         return captor.getValue();
     }
 

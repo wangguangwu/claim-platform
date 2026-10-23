@@ -3,12 +3,18 @@ package com.claim.platform.intake.application.service;
 import com.claim.platform.intake.application.command.SubmitIntakeCommand;
 import com.claim.platform.intake.application.command.UploadMaterialsCommand;
 import com.claim.platform.intake.application.exception.IntakeSubmissionInProgressException;
+import com.claim.platform.intake.application.exception.SignNoUnavailableException;
+import com.claim.platform.intake.application.exception.SignNoUnavailableReason;
 import com.claim.platform.intake.application.port.IntakeSubmissionLock;
 import com.claim.platform.intake.application.port.IntakeSubmissionLockHandle;
 import com.claim.platform.intake.application.port.LockAcquireStatus;
+import com.claim.platform.intake.application.port.SignNoPolicy;
 import com.claim.platform.intake.application.result.ClaimIntakeResult;
+import com.claim.platform.intake.application.result.SignNoAllocation;
+import com.claim.platform.intake.application.result.SignNoSource;
 import com.claim.platform.intake.domain.exception.ClaimIntakeNotFoundException;
 import com.claim.platform.intake.domain.model.ClaimIntake;
+import com.claim.platform.intake.domain.model.SignNoFormat;
 import com.claim.platform.intake.domain.repository.ClaimIntakeStore;
 import com.claim.platform.intake.domain.repository.IntakeMaterialStore;
 import com.claim.platform.intake.domain.repository.InteractionLogStore;
@@ -20,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * 在 Claim Intake 限界上下文编排签收提交和材料登记。
@@ -34,7 +41,6 @@ import java.util.Optional;
 public class ClaimIntakeCommandService {
 
     private static final String SUBMISSION_METRIC = "claim.intake.submission";
-    private static final String CONFLICT_METRIC = "claim.intake.submission.conflict";
 
     private static final String RESULT_CREATED = "created";
     private static final String RESULT_REPLAYED_QUICK = "replayed_quick";
@@ -45,7 +51,7 @@ public class ClaimIntakeCommandService {
     private static final String RESULT_ERROR = "error";
 
     private static final String CONFLICT_EXTERNAL_APPLY_NO = "external_apply_no";
-    private static final String CONFLICT_SIGN_NO_RETRY = "sign_no_retry";
+    private static final String CONFLICT_SIGN_NO = "sign_no";
 
     private static final String LAYER_QUICK_QUERY = "quick-query";
     private static final String LAYER_LOCKED_DOUBLE_CHECK = "locked-double-check";
@@ -58,7 +64,9 @@ public class ClaimIntakeCommandService {
     private final InteractionLogStore interactionLogStore;
     private final IntakeSubmissionLock submissionLock;
     private final ClaimIntakeCreationService creationService;
-    private final SignNoGenerator signNoGenerator;
+    private final SignNoAllocationService signNoAllocationService;
+    private final SignNoPolicy signNoPolicy;
+    private final SignNoMetrics signNoMetrics;
     private final MeterRegistry meterRegistry;
 
     /**
@@ -120,36 +128,57 @@ public class ClaimIntakeCommandService {
             }
 
             existing = findByExternalApplyNo(command);
-            if (existing.isPresent()) {
-                return replay(existing.get(), command, LAYER_LOCKED_DOUBLE_CHECK, RESULT_REPLAYED_LOCKED);
-            }
-            return createWithSignNoRetry(command);
+            return existing.map(claimIntake -> replay(claimIntake, command, LAYER_LOCKED_DOUBLE_CHECK, RESULT_REPLAYED_LOCKED)).orElseGet(() -> createWithSignNoRetry(command));
         }
     }
 
     private ClaimIntakeResult createWithSignNoRetry(SubmitIntakeCommand command) {
-        try {
-            return create(command);
-        } catch (DuplicateKeyException exception) {
-            Optional<ClaimIntake> concurrent = findByExternalApplyNo(command);
-            if (concurrent.isPresent()) {
-                recordConflict(CONFLICT_EXTERNAL_APPLY_NO);
-                return replay(concurrent.get(), command, LAYER_UNIQUE_CONFLICT, RESULT_REPLAYED_CONFLICT);
+        int maxAttempts = signNoPolicy.getMaxAttempts();
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            SignNoAllocation allocation = signNoAllocationService.next();
+            try {
+                return create(command, allocation);
+            } catch (DuplicateKeyException exception) {
+                Optional<ClaimIntake> concurrent = findByExternalApplyNo(command);
+                if (concurrent.isPresent()) {
+                    signNoMetrics.recordConflict(CONFLICT_EXTERNAL_APPLY_NO);
+                    return replay(concurrent.get(), command, LAYER_UNIQUE_CONFLICT, RESULT_REPLAYED_CONFLICT);
+                }
+                signNoMetrics.recordConflict(CONFLICT_SIGN_NO);
+                if (allocation.source() == SignNoSource.MYSQL_FALLBACK) {
+                    signNoMetrics.recordFallback("conflict");
+                }
+                log.warn("claim intake signNo collision tenantCode={} signNo={} traceId={} attempt={} source={}",
+                        command.tenantCode(), allocation.signNo(), command.traceId(), attempt, allocation.source());
+                if (attempt == maxAttempts) {
+                    log.error("claim intake sign no retry exhausted tenantCode={} traceId={} attempts={}",
+                            command.tenantCode(), command.traceId(), maxAttempts);
+                    throw new SignNoUnavailableException(SignNoUnavailableReason.RETRY_EXHAUSTED, exception);
+                }
+                signNoAllocationService.recoverAfterConflict(SignNoFormat.parseDate(allocation.signNo()),
+                        allocation.source());
+                backoff();
             }
-            recordConflict(CONFLICT_SIGN_NO_RETRY);
-            log.warn("claim intake signNo collision tenantCode={} traceId={} result={}",
-                    command.tenantCode(), command.traceId(), CONFLICT_SIGN_NO_RETRY);
-            return create(command);
         }
+        throw new IllegalStateException("unreachable");
     }
 
-    private ClaimIntakeResult create(SubmitIntakeCommand command) {
-        String signNo = signNoGenerator.generate();
-        ClaimIntakeResult result = creationService.create(command, signNo);
+    private ClaimIntakeResult create(SubmitIntakeCommand command, SignNoAllocation allocation) {
+        ClaimIntakeResult result = creationService.create(command, allocation.signNo());
         recordSubmission(RESULT_CREATED);
-        log.info("claim intake created tenantCode={} signNo={} traceId={} result={}",
-                command.tenantCode(), signNo, command.traceId(), RESULT_CREATED);
+        log.info("claim intake created tenantCode={} signNo={} source={} traceId={} result={}",
+                command.tenantCode(), allocation.signNo(), allocation.source(), command.traceId(), RESULT_CREATED);
         return result;
+    }
+
+    private void backoff() {
+        long delayMillis = ThreadLocalRandom.current().nextLong(10, 31);
+        try {
+            Thread.sleep(delayMillis);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new SignNoUnavailableException(SignNoUnavailableReason.RETRY_EXHAUSTED, exception);
+        }
     }
 
     private Optional<ClaimIntake> findByExternalApplyNo(SubmitIntakeCommand command) {
@@ -165,9 +194,5 @@ public class ClaimIntakeCommandService {
 
     private void recordSubmission(String result) {
         meterRegistry.counter(SUBMISSION_METRIC, "result", result).increment();
-    }
-
-    private void recordConflict(String type) {
-        meterRegistry.counter(CONFLICT_METRIC, "type", type).increment();
     }
 }

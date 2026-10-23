@@ -43,7 +43,7 @@ public class ClaimIntakeCreationService {
         if (hasMaterials) {
             intake.registerMaterials();
         }
-        intakeStore.save(intake);
+        intakeStore.insert(intake);
         if (hasMaterials) {
             materialStore.saveAll(command.tenantCode(), signNo, command.materials());
         }

@@ -83,6 +83,12 @@ public class IntakePersistenceRepositoryImpl implements ClaimIntakeStore, Intake
     }
 
     @Override
+    public void insert(ClaimIntake intake) {
+        intakeMapper.insert(persistenceConverter.toDO(intake));
+        log.debug("inserted new claim intake tenant={} signNo={}", intake.tenantCode(), intake.signNo());
+    }
+
+    @Override
     public void save(ClaimIntake intake) {
         ClaimIntakeDO existing = findDO(intake.tenantCode(), intake.signNo());
         if (existing == null) {
