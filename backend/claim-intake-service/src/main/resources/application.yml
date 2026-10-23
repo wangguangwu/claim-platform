@@ -30,6 +30,9 @@ claim:
         wait-time: ${CLAIM_INTAKE_LOCK_WAIT_TIME:3s}
         lease-time: ${CLAIM_INTAKE_LOCK_LEASE_TIME:10s}
         key-prefix: "${CLAIM_INTAKE_LOCK_KEY_PREFIX:claim:intake:submit:}"
+      replay-cache:
+        key-prefix: "${CLAIM_INTAKE_REPLAY_CACHE_KEY_PREFIX:claim:intake:replay:}"
+        ttl: ${CLAIM_INTAKE_REPLAY_CACHE_TTL:24h}
 
 server:
   port: ${SERVER_PORT:8081}

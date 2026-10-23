@@ -19,6 +19,7 @@ import com.claim.platform.intake.application.command.SubmitIntakeCommand;
 import com.claim.platform.intake.application.exception.IntakeSubmissionInProgressException;
 import com.claim.platform.intake.application.port.IntakeSubmissionLock;
 import com.claim.platform.intake.application.port.IntakeSubmissionLockHandle;
+import com.claim.platform.intake.application.port.IntakeSubmissionReplayCache;
 import com.claim.platform.intake.application.port.LockAcquireStatus;
 import com.claim.platform.intake.application.result.ClaimIntakeResult;
 import com.claim.platform.intake.domain.model.ClaimIntake;
@@ -66,6 +67,8 @@ class ClaimIntakeCommandServiceTest {
     @Mock
     private IntakeSubmissionLock submissionLock;
     @Mock
+    private IntakeSubmissionReplayCache replayCache;
+    @Mock
     private ClaimIntakeCreationService creationService;
     @Mock
     private SignNoGenerator signNoGenerator;
@@ -76,7 +79,50 @@ class ClaimIntakeCommandServiceTest {
     @BeforeEach
     void setUp() {
         commandService = new ClaimIntakeCommandService(intakeStore, materialStore, interactionLogStore,
-                submissionLock, creationService, signNoGenerator, meterRegistry);
+                submissionLock, replayCache, creationService, signNoGenerator, meterRegistry);
+    }
+
+    @Test
+    void shouldReplayCachedSignNoWithCurrentDatabaseStatusWithoutAcquiringLock() {
+        given(replayCache.findSignNo(TENANT_CODE, EXTERNAL_APPLY_NO)).willReturn(Optional.of(SIGN_NO));
+        given(intakeStore.findByTenantAndSignNo(TENANT_CODE, SIGN_NO)).willReturn(Optional.of(existingIntake()));
+
+        ClaimIntakeResult result = commandService.submit(command());
+
+        assertThat(result.signNo()).isEqualTo(SIGN_NO);
+        assertThat(result.status()).isEqualTo(IntakeStatus.IMAGE_NOT_UPLOAD);
+        verify(intakeStore, never()).findByTenantAndExternalApplyNo(TENANT_CODE, EXTERNAL_APPLY_NO);
+        verifyNoInteractions(submissionLock, creationService, materialStore, interactionLogStore);
+        assertThat(submissionCount("replayed_quick")).isEqualTo(1.0);
+    }
+
+    @Test
+    void shouldFallbackToDatabaseAndWarmCacheWhenReplayCacheMisses() {
+        ClaimIntake intake = existingIntake();
+        given(replayCache.findSignNo(TENANT_CODE, EXTERNAL_APPLY_NO)).willReturn(Optional.empty());
+        given(intakeStore.findByTenantAndExternalApplyNo(TENANT_CODE, EXTERNAL_APPLY_NO))
+                .willReturn(Optional.of(intake));
+
+        ClaimIntakeResult result = commandService.submit(command());
+
+        assertThat(result.signNo()).isEqualTo(SIGN_NO);
+        verify(replayCache).put(TENANT_CODE, EXTERNAL_APPLY_NO, SIGN_NO);
+        verifyNoInteractions(submissionLock, creationService, materialStore, interactionLogStore);
+    }
+
+    @Test
+    void shouldEvictStaleCacheMappingBeforeFallingBackToDatabase() {
+        given(replayCache.findSignNo(TENANT_CODE, EXTERNAL_APPLY_NO)).willReturn(Optional.of("STALE"));
+        given(intakeStore.findByTenantAndSignNo(TENANT_CODE, "STALE")).willReturn(Optional.empty());
+        given(intakeStore.findByTenantAndExternalApplyNo(TENANT_CODE, EXTERNAL_APPLY_NO))
+                .willReturn(Optional.of(existingIntake()));
+
+        ClaimIntakeResult result = commandService.submit(command());
+
+        assertThat(result.signNo()).isEqualTo(SIGN_NO);
+        verify(replayCache).evict(TENANT_CODE, EXTERNAL_APPLY_NO);
+        verify(replayCache).put(TENANT_CODE, EXTERNAL_APPLY_NO, SIGN_NO);
+        verifyNoInteractions(submissionLock, creationService, materialStore, interactionLogStore);
     }
 
     @Test
@@ -120,6 +166,7 @@ class ClaimIntakeCommandServiceTest {
         ClaimIntakeResult result = commandService.submit(command());
 
         assertThat(result).isSameAs(created);
+        verify(replayCache).put(TENANT_CODE, EXTERNAL_APPLY_NO, "SIGNNEW");
         verify(handle).close();
         assertThat(submissionCount("created")).isEqualTo(1.0);
     }
@@ -226,6 +273,7 @@ class ClaimIntakeCommandServiceTest {
 
         assertThatThrownBy(() -> commandService.submit(command())).isSameAs(failure);
 
+        verify(replayCache, never()).put(TENANT_CODE, EXTERNAL_APPLY_NO, "SIGNNEW");
         verify(handle).close();
         assertThat(submissionCount("error")).isEqualTo(1.0);
     }

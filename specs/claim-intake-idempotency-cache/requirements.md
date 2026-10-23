@@ -4,7 +4,7 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 状态 | Draft |
+| 状态 | Done |
 | 所属限界上下文 | Claim Intake |
 | 模块 | `backend/claim-intake-service` |
 | 功能分支 | `feat/claim-intake-idempotency-cache` |
