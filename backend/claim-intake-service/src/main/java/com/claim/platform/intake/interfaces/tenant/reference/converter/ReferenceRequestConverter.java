@@ -11,6 +11,7 @@ import com.claim.platform.intake.interfaces.tenant.reference.dto.ReferenceIntake
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -39,7 +40,7 @@ public class ReferenceRequestConverter implements RequestConverter<ReferenceInta
                 applicant.certificateNo(), applicant.mobile(), applicant.gender(),
                 applicant.birthDate(), applicant.relationshipToInsured());
         return new SubmitIntakeCommand(context.tenantCode(), context.traceId(), request.externalApplyNo(),
-                applicant.name(), domainApplicant, null, null, null, extensionJson(request));
+                applicant.name(), domainApplicant, null, null, null, List.of(), extensionJson(request));
     }
 
     private String extensionJson(ReferenceIntakePayload request) {

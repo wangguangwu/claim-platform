@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.claim.platform.intake.application.command.SubmitIntakeCommand;
+import com.claim.platform.intake.application.exception.IntakeSubmissionInProgressException;
 import com.claim.platform.intake.application.result.ClaimIntakeResult;
 import com.claim.platform.intake.application.service.ClaimIntakeCommandService;
 import com.claim.platform.intake.domain.model.IntakeStatus;
@@ -25,6 +26,7 @@ import com.claim.platform.intake.interfaces.web.context.TenantIntakeContextResol
 import com.claim.platform.intake.interfaces.web.exception.TenantContextMissingException;
 import jakarta.servlet.http.HttpServletRequest;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -42,7 +44,7 @@ class TenantIntakeControllerTest {
 
     private static final TenantContext CONTEXT = new TenantContext("reference", "v1", "trace-001");
     private static final SubmitIntakeCommand COMMAND = new SubmitIntakeCommand("reference", "trace-001",
-            "EXT-001", "张三", null, null, null, null, "{}");
+            "EXT-001", "张三", null, null, null, null, List.of(), "{}");
     private static final ClaimIntakeResult RESULT = new ClaimIntakeResult("SIGN001",
             IntakeStatus.IMAGE_NOT_UPLOAD);
 
@@ -160,6 +162,20 @@ class TenantIntakeControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("TENANT_CONTEXT_MISSING"));
         verifyNoInteractions(convertPipeline, commandService);
+    }
+
+    @Test
+    void shouldMapSubmissionInProgressConflict() throws Exception {
+        stubContext();
+        given(convertPipeline.execute(anyString())).willReturn(COMMAND);
+        given(commandService.submit(any())).willThrow(new IntakeSubmissionInProgressException());
+
+        mockMvc.perform(intakeRequest())
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("INTAKE_SUBMISSION_IN_PROGRESS"))
+                .andExpect(jsonPath("$.message").value("申请正在处理中，请稍后重试"))
+                .andExpect(jsonPath("$.traceId").value("trace-001"));
     }
 
     @Test

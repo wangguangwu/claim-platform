@@ -2,69 +2,83 @@ package com.claim.platform.intake.application.service;
 
 import com.claim.platform.intake.application.command.SubmitIntakeCommand;
 import com.claim.platform.intake.application.command.UploadMaterialsCommand;
+import com.claim.platform.intake.application.exception.IntakeSubmissionInProgressException;
+import com.claim.platform.intake.application.port.IntakeSubmissionLock;
+import com.claim.platform.intake.application.port.IntakeSubmissionLockHandle;
+import com.claim.platform.intake.application.port.LockAcquireStatus;
 import com.claim.platform.intake.application.result.ClaimIntakeResult;
 import com.claim.platform.intake.domain.exception.ClaimIntakeNotFoundException;
 import com.claim.platform.intake.domain.model.ClaimIntake;
 import com.claim.platform.intake.domain.repository.ClaimIntakeStore;
 import com.claim.platform.intake.domain.repository.IntakeMaterialStore;
 import com.claim.platform.intake.domain.repository.InteractionLogStore;
-
-import java.util.UUID;
-
-import org.springframework.dao.DataIntegrityViolationException;
+import io.micrometer.core.instrument.MeterRegistry;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
+
 /**
- * 在 Claim Intake 限界上下文编排签收申请和材料登记，
- * 确保业务事实与交互日志在同一事务内提交。
+ * 在 Claim Intake 限界上下文编排签收提交和材料登记。
+ * 签收提交本身不开启数据库事务：快速查询、业务锁、锁内复查都在事务外执行，
+ * 只有创建动作进入 {@link ClaimIntakeCreationService} 的独立事务。
  *
  * @author wangguangwu
  */
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class ClaimIntakeCommandService {
+
+    private static final String SUBMISSION_METRIC = "claim.intake.submission";
+    private static final String CONFLICT_METRIC = "claim.intake.submission.conflict";
+
+    private static final String RESULT_CREATED = "created";
+    private static final String RESULT_REPLAYED_QUICK = "replayed_quick";
+    private static final String RESULT_REPLAYED_LOCKED = "replayed_locked";
+    private static final String RESULT_REPLAYED_CONFLICT = "replayed_conflict";
+    private static final String RESULT_LOCK_TIMEOUT = "lock_timeout";
+    private static final String RESULT_LOCK_DEGRADED = "lock_degraded";
+    private static final String RESULT_ERROR = "error";
+
+    private static final String CONFLICT_EXTERNAL_APPLY_NO = "external_apply_no";
+    private static final String CONFLICT_SIGN_NO_RETRY = "sign_no_retry";
+
+    private static final String LAYER_QUICK_QUERY = "quick-query";
+    private static final String LAYER_LOCKED_DOUBLE_CHECK = "locked-double-check";
+    private static final String LAYER_UNIQUE_CONFLICT = "unique-conflict";
+
+    private static final String INTERACTION_IMAGE_UPLOAD = "IMAGE_UPLOAD";
 
     private final ClaimIntakeStore intakeStore;
     private final IntakeMaterialStore materialStore;
     private final InteractionLogStore interactionLogStore;
-
-    public ClaimIntakeCommandService(ClaimIntakeStore intakeStore, IntakeMaterialStore materialStore,
-                                     InteractionLogStore interactionLogStore) {
-        this.intakeStore = intakeStore;
-        this.materialStore = materialStore;
-        this.interactionLogStore = interactionLogStore;
-    }
+    private final IntakeSubmissionLock submissionLock;
+    private final ClaimIntakeCreationService creationService;
+    private final SignNoGenerator signNoGenerator;
+    private final MeterRegistry meterRegistry;
 
     /**
-     * 接收外部申请并创建待上传材料的受理事实。
-     * 幂等键为 {@code tenantCode + externalApplyNo}（见聚合不变量），重复提交回放既有签收编号。
+     * 接收标准签收命令并按三级幂等创建或回放申请。
+     * 幂等键为 {@code tenantCode + externalApplyNo}；锁等待超时返回可重试的并发失败。
      *
-     * @param command 已从受信任调用链取得租户的命令
-     * @return 首次创建或按外部申请编号回放的受理结果
+     * @param command 已从受信任调用链取得租户的标准命令
+     * @return 首次创建或回放的受理结果
      */
-    @Transactional
     public ClaimIntakeResult submit(SubmitIntakeCommand command) {
-        ClaimIntake existing = intakeStore.findByTenantAndExternalApplyNo(command.tenantCode(),
-                        command.externalApplyNo())
-                .orElse(null);
-        if (existing != null) {
-            return new ClaimIntakeResult(existing.signNo(), existing.status());
-        }
-        String signNo = "SIGN" + UUID.randomUUID().toString().replace("-", "").substring(0, 20).toUpperCase();
-        ClaimIntake intake = ClaimIntake.create(command.tenantCode(), signNo, command.externalApplyNo(),
-                command.applicantName(), command.applicant(), command.accidentPerson(),
-                command.mainInsured(), command.payee(), command.extJson());
         try {
-            intakeStore.save(intake);
-        } catch (DataIntegrityViolationException exception) {
-            // 并发下唯一键先赢：回读既有受理事实回放，保证幂等键语义不被绕过
-            ClaimIntake concurrent = intakeStore.findByTenantAndExternalApplyNo(command.tenantCode(),
-                            command.externalApplyNo())
-                    .orElseThrow(() -> exception);
-            return new ClaimIntakeResult(concurrent.signNo(), concurrent.status());
+            return submitWithIdempotencyGuard(command);
+        } catch (IntakeSubmissionInProgressException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            recordSubmission(RESULT_ERROR);
+            log.error("claim intake submission failed tenantCode={} traceId={} result={}",
+                    command.tenantCode(), command.traceId(), RESULT_ERROR, exception);
+            throw exception;
         }
-        interactionLogStore.recordSuccess(command.tenantCode(), signNo, "SIGN_RECEIVE", null, command.traceId());
-        return new ClaimIntakeResult(signNo, intake.status());
     }
 
     /**
@@ -80,8 +94,80 @@ public class ClaimIntakeCommandService {
         intake.registerMaterials();
         materialStore.saveAll(command.tenantCode(), command.signNo(), command.materials());
         intakeStore.save(intake);
-        interactionLogStore.recordSuccess(command.tenantCode(), command.signNo(), "IMAGE_UPLOAD", null,
+        interactionLogStore.recordSuccess(command.tenantCode(), command.signNo(), INTERACTION_IMAGE_UPLOAD, null,
                 command.traceId());
         return new ClaimIntakeResult(command.signNo(), intake.status());
+    }
+
+    private ClaimIntakeResult submitWithIdempotencyGuard(SubmitIntakeCommand command) {
+        Optional<ClaimIntake> existing = findByExternalApplyNo(command);
+        if (existing.isPresent()) {
+            return replay(existing.get(), command, LAYER_QUICK_QUERY, RESULT_REPLAYED_QUICK);
+        }
+
+        try (IntakeSubmissionLockHandle handle = submissionLock.tryAcquire(
+                command.tenantCode(), command.externalApplyNo())) {
+            if (handle.status() == LockAcquireStatus.TIMEOUT) {
+                recordSubmission(RESULT_LOCK_TIMEOUT);
+                log.warn("claim intake submission lock timeout tenantCode={} traceId={} result={}",
+                        command.tenantCode(), command.traceId(), RESULT_LOCK_TIMEOUT);
+                throw new IntakeSubmissionInProgressException();
+            }
+            if (handle.status() == LockAcquireStatus.UNAVAILABLE) {
+                recordSubmission(RESULT_LOCK_DEGRADED);
+                log.warn("claim intake submission lock degraded tenantCode={} traceId={} result={}",
+                        command.tenantCode(), command.traceId(), RESULT_LOCK_DEGRADED);
+            }
+
+            existing = findByExternalApplyNo(command);
+            if (existing.isPresent()) {
+                return replay(existing.get(), command, LAYER_LOCKED_DOUBLE_CHECK, RESULT_REPLAYED_LOCKED);
+            }
+            return createWithSignNoRetry(command);
+        }
+    }
+
+    private ClaimIntakeResult createWithSignNoRetry(SubmitIntakeCommand command) {
+        try {
+            return create(command);
+        } catch (DuplicateKeyException exception) {
+            Optional<ClaimIntake> concurrent = findByExternalApplyNo(command);
+            if (concurrent.isPresent()) {
+                recordConflict(CONFLICT_EXTERNAL_APPLY_NO);
+                return replay(concurrent.get(), command, LAYER_UNIQUE_CONFLICT, RESULT_REPLAYED_CONFLICT);
+            }
+            recordConflict(CONFLICT_SIGN_NO_RETRY);
+            log.warn("claim intake signNo collision tenantCode={} traceId={} result={}",
+                    command.tenantCode(), command.traceId(), CONFLICT_SIGN_NO_RETRY);
+            return create(command);
+        }
+    }
+
+    private ClaimIntakeResult create(SubmitIntakeCommand command) {
+        String signNo = signNoGenerator.generate();
+        ClaimIntakeResult result = creationService.create(command, signNo);
+        recordSubmission(RESULT_CREATED);
+        log.info("claim intake created tenantCode={} signNo={} traceId={} result={}",
+                command.tenantCode(), signNo, command.traceId(), RESULT_CREATED);
+        return result;
+    }
+
+    private Optional<ClaimIntake> findByExternalApplyNo(SubmitIntakeCommand command) {
+        return intakeStore.findByTenantAndExternalApplyNo(command.tenantCode(), command.externalApplyNo());
+    }
+
+    private ClaimIntakeResult replay(ClaimIntake intake, SubmitIntakeCommand command, String layer, String result) {
+        recordSubmission(result);
+        log.debug("claim intake replayed tenantCode={} signNo={} traceId={} layer={} result={}",
+                command.tenantCode(), intake.signNo(), command.traceId(), layer, result);
+        return new ClaimIntakeResult(intake.signNo(), intake.status());
+    }
+
+    private void recordSubmission(String result) {
+        meterRegistry.counter(SUBMISSION_METRIC, "result", result).increment();
+    }
+
+    private void recordConflict(String type) {
+        meterRegistry.counter(CONFLICT_METRIC, "type", type).increment();
     }
 }

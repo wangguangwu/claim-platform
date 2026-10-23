@@ -1,5 +1,6 @@
 package com.claim.platform.intake.interfaces.web.advice;
 
+import com.claim.platform.intake.application.exception.IntakeSubmissionInProgressException;
 import com.claim.platform.intake.domain.exception.InvalidIntakeStatusException;
 import com.claim.platform.intake.domain.exception.ConcurrentIntakeModificationException;
 import com.claim.platform.intake.domain.exception.ClaimIntakeNotFoundException;
@@ -116,6 +117,17 @@ public class ClaimIntakeExceptionHandler {
     public ResponseEntity<ApiResult<Void>> invalidStatus(InvalidIntakeStatusException exception,
                                                          HttpServletRequest request) {
         return failure(HttpStatus.CONFLICT, "INVALID_INTAKE_STATUS", "当前申请状态不允许该操作", traceId(request));
+    }
+
+    /**
+     * 返回同一幂等键正在处理中的并发响应，调用方应使用相同幂等键退避重试。
+     */
+    @ExceptionHandler(IntakeSubmissionInProgressException.class)
+    public ResponseEntity<ApiResult<Void>> submissionInProgress(IntakeSubmissionInProgressException exception,
+                                                                HttpServletRequest request) {
+        String traceId = traceId(request);
+        LOGGER.warn("claim intake submission in progress traceId={} result=lock_timeout", traceId);
+        return failure(HttpStatus.CONFLICT, "INTAKE_SUBMISSION_IN_PROGRESS", "申请正在处理中，请稍后重试", traceId);
     }
 
     /**

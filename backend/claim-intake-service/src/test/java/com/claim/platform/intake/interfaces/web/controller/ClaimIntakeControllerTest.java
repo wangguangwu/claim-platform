@@ -1,13 +1,16 @@
 package com.claim.platform.intake.interfaces.web.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.claim.platform.intake.application.command.SubmitIntakeCommand;
 import com.claim.platform.intake.application.service.ClaimIntakeCommandService;
 import com.claim.platform.intake.application.service.ClaimIntakeQueryService;
 import com.claim.platform.intake.application.result.ClaimIntakeResult;
@@ -17,6 +20,7 @@ import com.claim.platform.intake.interfaces.web.context.GatewayRequestContext;
 import com.claim.platform.intake.interfaces.web.context.GatewayRequestContextResolver;
 import com.claim.platform.intake.interfaces.web.converter.PersonRequestConverter;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -51,6 +55,10 @@ class ClaimIntakeControllerTest {
                 .andExpect(jsonPath("$.code").value("OK"))
                 .andExpect(jsonPath("$.traceId").value("trace-001"))
                 .andExpect(jsonPath("$.data.signNo").value("SIGN001"));
+
+        ArgumentCaptor<SubmitIntakeCommand> captor = ArgumentCaptor.forClass(SubmitIntakeCommand.class);
+        verify(commandService).submit(captor.capture());
+        assertThat(captor.getValue().materials()).isEmpty();
     }
 
     @Test

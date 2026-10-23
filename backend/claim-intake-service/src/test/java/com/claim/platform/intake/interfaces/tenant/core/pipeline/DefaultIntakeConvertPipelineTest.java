@@ -35,6 +35,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.lang.reflect.RecordComponent;
 import java.util.Arrays;
+import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -66,7 +67,7 @@ class DefaultIntakeConvertPipelineTest {
         SupportTenantIntakePayload payload = new SupportTenantIntakePayload(
                 "EXT-001", null, "2026-10-01", null, null, null);
         SubmitIntakeCommand command = new SubmitIntakeCommand(SupportTenantTestData.TENANT_CODE,
-                SupportTenantTestData.TRACE_ID, "EXT-001", "张三", null, null, null, null, null);
+                SupportTenantTestData.TRACE_ID, "EXT-001", "张三", null, null, null, null, List.of(), null);
         RequestParser<SupportTenantIntakePayload> parser = mock(RequestParser.class);
         RequestValidator<SupportTenantIntakePayload> validator = mock(RequestValidator.class);
         RequestConverter<SupportTenantIntakePayload> converter = mock(RequestConverter.class);

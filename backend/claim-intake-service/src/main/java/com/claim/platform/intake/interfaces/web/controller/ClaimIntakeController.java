@@ -75,7 +75,7 @@ public class ClaimIntakeController {
                 personRequestConverter.toApplicant(request.applicantInfo()),
                 personRequestConverter.toAccidentPerson(request.accidentPersonInfo()),
                 personRequestConverter.toMainInsured(request.mainInsuredInfo()),
-                personRequestConverter.toPayee(request.payeeInfo()),
+                personRequestConverter.toPayee(request.payeeInfo()), List.of(),
                 toJson(request.extJson())));
         return ResponseEntity.ok(ApiResult.success(result, context.traceId()));
     }

@@ -81,6 +81,7 @@ class ReferenceTenantAdapterTest {
         assertThat(command.accidentPerson()).isNull();
         assertThat(command.mainInsured()).isNull();
         assertThat(command.payee()).isNull();
+        assertThat(command.materials()).isEmpty();
     }
 
     @Test

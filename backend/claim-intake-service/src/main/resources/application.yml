@@ -24,6 +24,12 @@ mybatis-plus:
 claim:
   internal:
     service-token: ${CLAIM_INTERNAL_SERVICE_TOKEN:change-me-in-non-local-environments}
+  intake:
+    submission:
+      lock:
+        wait-time: ${CLAIM_INTAKE_LOCK_WAIT_TIME:3s}
+        lease-time: ${CLAIM_INTAKE_LOCK_LEASE_TIME:10s}
+        key-prefix: "${CLAIM_INTAKE_LOCK_KEY_PREFIX:claim:intake:submit:}"
 
 server:
   port: ${SERVER_PORT:8081}
