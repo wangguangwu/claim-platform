@@ -40,6 +40,9 @@ claim:
       reconciliation-interval: ${CLAIM_INTAKE_NUMBER_RECONCILIATION_INTERVAL:5m}
       reconciliation-initial-delay: ${CLAIM_INTAKE_NUMBER_RECONCILIATION_INITIAL_DELAY:0s}
       reconciliation-days: ${CLAIM_INTAKE_NUMBER_RECONCILIATION_DAYS:2}
+      replay-cache:
+        key-prefix: "${CLAIM_INTAKE_REPLAY_CACHE_KEY_PREFIX:claim:intake:replay:}"
+        ttl: ${CLAIM_INTAKE_REPLAY_CACHE_TTL:24h}
 
 server:
   port: ${SERVER_PORT:8081}

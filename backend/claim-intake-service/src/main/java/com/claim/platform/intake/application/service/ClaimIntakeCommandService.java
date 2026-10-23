@@ -7,6 +7,7 @@ import com.claim.platform.intake.application.exception.SignNoUnavailableExceptio
 import com.claim.platform.intake.application.exception.SignNoUnavailableReason;
 import com.claim.platform.intake.application.port.IntakeSubmissionLock;
 import com.claim.platform.intake.application.port.IntakeSubmissionLockHandle;
+import com.claim.platform.intake.application.port.IntakeSubmissionReplayCache;
 import com.claim.platform.intake.application.port.LockAcquireStatus;
 import com.claim.platform.intake.application.port.SignNoPolicy;
 import com.claim.platform.intake.application.result.ClaimIntakeResult;
@@ -63,6 +64,7 @@ public class ClaimIntakeCommandService {
     private final IntakeMaterialStore materialStore;
     private final InteractionLogStore interactionLogStore;
     private final IntakeSubmissionLock submissionLock;
+    private final IntakeSubmissionReplayCache replayCache;
     private final ClaimIntakeCreationService creationService;
     private final SignNoAllocationService signNoAllocationService;
     private final SignNoPolicy signNoPolicy;
@@ -165,6 +167,7 @@ public class ClaimIntakeCommandService {
 
     private ClaimIntakeResult create(SubmitIntakeCommand command, SignNoAllocation allocation) {
         ClaimIntakeResult result = creationService.create(command, allocation.signNo());
+        replayCache.put(command.tenantCode(), command.externalApplyNo(), result.signNo());
         recordSubmission(RESULT_CREATED);
         log.info("claim intake created tenantCode={} signNo={} source={} traceId={} result={}",
                 command.tenantCode(), allocation.signNo(), allocation.source(), command.traceId(), RESULT_CREATED);
@@ -182,7 +185,21 @@ public class ClaimIntakeCommandService {
     }
 
     private Optional<ClaimIntake> findByExternalApplyNo(SubmitIntakeCommand command) {
-        return intakeStore.findByTenantAndExternalApplyNo(command.tenantCode(), command.externalApplyNo());
+        Optional<String> cachedSignNo = replayCache.findSignNo(command.tenantCode(), command.externalApplyNo());
+        if (cachedSignNo.isPresent()) {
+            Optional<ClaimIntake> cachedIntake = intakeStore.findByTenantAndSignNo(command.tenantCode(),
+                    cachedSignNo.get());
+            if (cachedIntake.isPresent()) {
+                return cachedIntake;
+            }
+            replayCache.evict(command.tenantCode(), command.externalApplyNo());
+        }
+
+        Optional<ClaimIntake> persistedIntake = intakeStore.findByTenantAndExternalApplyNo(command.tenantCode(),
+                command.externalApplyNo());
+        persistedIntake.ifPresent(intake -> replayCache.put(command.tenantCode(), command.externalApplyNo(),
+                intake.signNo()));
+        return persistedIntake;
     }
 
     private ClaimIntakeResult replay(ClaimIntake intake, SubmitIntakeCommand command, String layer, String result) {
