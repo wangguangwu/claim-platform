@@ -17,7 +17,7 @@
 | --- | --- |
 | `docs/specs/baseline.md` | 产品范围、核心业务规则、技术约束、架构与分层、全局需求、范围之外 |
 | `docs/engineering/workflow.md` | 开发生命周期与全部 Git 操作：工作区、分支、同步、提交、推送、审核、合并、验证门禁、任务结束条件 |
-| `docs/engineering/specification.md` | Spec 的建与不建、`requirements.md` / `design.md` / `tasks.md` 的职责边界与一致性规则、归档 |
+| `docs/engineering/specification.md` | Spec 的建与不建、`requirements.md` / `design.md` / `tasks.md` 的职责边界与一致性规则、交付后清理 |
 | `docs/engineering/implementation.md` | 代码修改规范：先查后写、复用、新类职责与位置、范围纪律、测试、Java / 前端 / HTTP 契约细则 |
 | `README.md` | 项目导航与技术基线速览，不作为规则或需求依据 |
 
@@ -25,4 +25,4 @@
 
 - 权威顺序与基线变更规则见 `docs/specs/baseline.md`「与功能 Spec 的关系」。
 - 业务规则、数据归属或需求含义不明确时，按 `docs/engineering/workflow.md` 第 1 节先向用户确认，不自行扩展流程。
-- `docs/specs/archive/` 只在追溯历史决策时读取，不参与当前任务的规范依据。
+- 历史决策不设归档目录：追溯已交付功能的设计依据时用 `git log` 与提交说明，长期结论一律以 `docs/specs/baseline.md` 为准。

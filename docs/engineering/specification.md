@@ -8,7 +8,7 @@ Feature 级改动需要建立 Spec：
 
 - 新增或改变业务能力、业务规则、状态流转；
 - 新增或变更跨上下文 API、领域事件、共享契约；
-- 改变领域模型、数据库边界、租户模型或 Agent 权限；
+- 改变领域模型、数据库边界、租户模型或前端功能域划分；
 - 需要多人/多步协作、跨多个模块的关键缺陷修复。
 
 轻量改动不需要 Spec，直接按 `docs/engineering/workflow.md` 开发与验证：
@@ -83,8 +83,9 @@ docs/specs/<feature-name>/   # 小写 kebab-case，一个功能一个目录
 
 禁止只改代码不回写文档；不得用未记录的实现决策绕过 Spec。
 
-## 7. 归档
+## 7. 交付与清理
 
-- 功能交付后，把 `docs/specs/<feature-name>/` 整体移入 `docs/specs/archive/<feature-name>/`。
-- 归档内容不修改、不删除；被后续实现替代时，在新代码或提交说明中记录替代关系。
-- `docs/specs/` 根目录只保留 `baseline.md` 和活动 Feature 目录，目录说明由本文件承担。
+- 功能交付后直接删除 `docs/specs/<feature-name>/`，不保留归档目录；历史决策通过 `git log` 与提交说明追溯。
+- 删除前必须把 Spec 中长期有效的结论回写 `docs/specs/baseline.md` 的对应章节：已确定的命名、保留契约、既定业务规则、尚未收敛的已知偏差。只服务于本次实现过程的临时内容（改动映射表、实施顺序、验证记录）不回写。
+- 结论未回写干净不得删除 Spec。
+- `docs/specs/` 只保留 `baseline.md` 和未完成的活动 Feature 目录，目录说明由本文件承担。

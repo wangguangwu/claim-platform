@@ -23,6 +23,9 @@
 | 数据库对象 | `DO` |
 | 请求 / 响应对象 | `Request` / `Response` |
 | 应用命令 / 结果 | `Command` / `Result` |
+| 写入用例的 command handler | `CommandHandler`（如 `SignCommandHandler`、`MaterialCommandHandler`） |
+| 读取用例的查询服务 | `QueryService`（如 `SignQueryService`、`PushTaskQueryService`） |
+| 协议与外部系统适配器 | `Adapter`（如 `TenantProtocolAdapter`、`InsurerPushAdapter`） |
 | 转换器 | `Converter` |
 | 外部客户端 | `Client` |
 | MQ 消费者 | `Consumer` |
