@@ -6,18 +6,18 @@
 
 ```text
 claim-platform/
-├── frontend/                  # Vue 3 + TypeScript 管理端
-├── backend/                   # Java 17 + Spring Boot 多模块后端
-│   ├── claim-gateway/         # 认证、租户识别、路由、限流、Trace
-│   ├── claim-intake-service/  # Claim Intake：理赔受理限界上下文
-│   ├── claim-case-delivery/   # Case Delivery：案件推送限界上下文
-│   └── claim-common/          # 无领域规则的共享技术能力与稳定契约
-├── docker/                    # Dockerfile、Compose 与本地容器资源
-├── docs/                      # 规范与需求文档
-│   ├── specs/                 # 项目基线、功能 Spec 与历史归档
-│   └── engineering/           # 流程、Spec 与代码规范
-├── AGENTS.md                  # Agent 开发入口与规则导航
-└── README.md                  # 项目入口与治理导航
+├── claim-platform-frontend/     # Vue 3 + TypeScript 管理端
+├── claim-platform-backend/      # Java 17 + Spring Boot 多模块后端
+│   ├── claim-gateway/           # 认证、租户识别、协议适配、路由、限流、Trace
+│   ├── claim-sign-service/      # 理赔签收：签收、材料、问题件、撤销
+│   ├── claim-case-push-service/ # 案件推送：推送任务、推送记录、回执、策略
+│   └── claim-common/            # 无领域规则的共享技术能力与稳定契约
+├── docker/                      # Dockerfile、Compose 与本地容器资源
+├── docs/                        # 规范与需求文档
+│   ├── specs/                   # 项目基线、功能 Spec 与历史归档
+│   └── engineering/             # 流程、Spec 与代码规范
+├── AGENTS.md                    # Agent 开发入口与规则导航
+└── README.md                    # 项目入口与治理导航
 ```
 
 ## 技术基线
@@ -54,9 +54,9 @@ mvn verify
 
 ```bash
 mvn package
-java -jar backend/claim-gateway/target/claim-gateway-0.1.0-SNAPSHOT.jar
-java -jar backend/claim-intake-service/target/claim-intake-service-0.1.0-SNAPSHOT.jar
-java -jar backend/claim-case-delivery/target/claim-case-delivery-0.1.0-SNAPSHOT.jar
+java -jar claim-platform-backend/claim-gateway/target/claim-gateway-0.1.0-SNAPSHOT.jar
+java -jar claim-platform-backend/claim-sign-service/target/claim-sign-service-0.1.0-SNAPSHOT.jar
+java -jar claim-platform-backend/claim-case-push-service/target/claim-case-push-service-0.1.0-SNAPSHOT.jar
 ```
 
 每个服务都通过 `/actuator/health` 提供本地存活检查。当前只提供可启动的基础骨架，不代表签收或推送业务能力已经实现。
