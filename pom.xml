@@ -13,7 +13,7 @@
   <packaging>pom</packaging>
   <name>claim-platform</name>
   <modules>
-    <module>backend</module>
+    <module>claim-platform-backend</module>
   </modules>
     <properties>
       <java.version>17</java.version>

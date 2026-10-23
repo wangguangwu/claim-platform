@@ -1,0 +1,58 @@
+spring:
+  application:
+    name: claim-sign-service
+  cloud:
+    nacos:
+      discovery:
+        enabled: false
+      config:
+        enabled: false
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/claim_intake_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: ${CLAIM_DB_USERNAME:claim}
+    password: ${CLAIM_DB_PASSWORD:claim-local-password}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      connect-timeout: 2s
+      timeout: 2s
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
+claim:
+  internal:
+    service-token: ${CLAIM_INTERNAL_SERVICE_TOKEN:change-me-in-non-local-environments}
+  sign:
+    submission:
+      lock:
+        wait-time: ${CLAIM_SIGN_LOCK_WAIT_TIME:3s}
+        lease-time: ${CLAIM_SIGN_LOCK_LEASE_TIME:10s}
+        key-prefix: "${CLAIM_SIGN_LOCK_KEY_PREFIX:claim:intake:submit:}"
+    number:
+      zone: ${CLAIM_SIGN_NUMBER_ZONE:Asia/Shanghai}
+      key-prefix: "${CLAIM_SIGN_NUMBER_KEY_PREFIX:sign:no:}"
+      counter-ttl: ${CLAIM_SIGN_NUMBER_COUNTER_TTL:3d}
+      max-attempts: ${CLAIM_SIGN_NUMBER_MAX_ATTEMPTS:3}
+      recovery-lock-wait-time: ${CLAIM_SIGN_NUMBER_RECOVERY_LOCK_WAIT_TIME:1s}
+      fallback-enabled: ${CLAIM_SIGN_NUMBER_FALLBACK_ENABLED:true}
+      reconciliation-interval: ${CLAIM_SIGN_NUMBER_RECONCILIATION_INTERVAL:5m}
+      reconciliation-initial-delay: ${CLAIM_SIGN_NUMBER_RECONCILIATION_INITIAL_DELAY:0s}
+      reconciliation-days: ${CLAIM_SIGN_NUMBER_RECONCILIATION_DAYS:2}
+      replay-cache:
+        key-prefix: "${CLAIM_SIGN_REPLAY_CACHE_KEY_PREFIX:claim:intake:replay:}"
+        ttl: ${CLAIM_SIGN_REPLAY_CACHE_TTL:24h}
+
+server:
+  port: ${SERVER_PORT:8081}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+otel:
+  sdk:
+    disabled: true

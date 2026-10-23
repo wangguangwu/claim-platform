@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
     <!-- 应用上下文名称，便于在多服务日志中区分来源 -->
-    <contextName>claim-intake-service</contextName>
+    <contextName>claim-sign-service</contextName>
 
     <!-- 控制台日志：模式携带 traceId 与 tenantCode 的 MDC 占位符，实现链路可关联 -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
@@ -13,9 +13,9 @@
 
     <!-- 滚动文件日志，按天与大小切割，保留 30 天 -->
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>logs/claim-intake-service.log</file>
+        <file>logs/claim-sign-service.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>logs/claim-intake-service.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <fileNamePattern>logs/claim-sign-service.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
             <maxFileSize>50MB</maxFileSize>
             <maxHistory>30</maxHistory>
             <totalSizeCap>2GB</totalSizeCap>

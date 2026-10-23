@@ -131,7 +131,18 @@ application
 | `RedissonIntakeSubmissionLock` / `RedisIntakeSubmissionReplayCache` | `RedissonSignSubmissionLock` / `RedisSignSubmissionReplayCache` |
 | `SignNo*`（cache / config / persistence / scheduling） | 名称不变，仅包根变化 |
 
-DO 与表名常量持有的数据库物理名（`t_claim_intake`、`intake_status` 等）保持原值。Redis 键、锁键与指标名一律不变，避免改变既有幂等与告警行为。
+DO 与表名常量持有的数据库物理名（`t_claim_intake`、`intake_status` 等）保持原值。
+
+配置与运行期契约的取舍：
+
+| 对象 | 本轮处理 | 依据 |
+| --- | --- | --- |
+| 配置命名空间 `claim.intake.*` 与环境变量 `CLAIM_INTAKE_*` | 改为 `claim.sign.*` 与 `CLAIM_SIGN_*` | 配置键是装配入口，无外部消费方，Nacos 配置中心在本仓库关闭 |
+| 指标名 `claim.intake.*`（8 个） | 保持不变 | `IntakeMetricConstants` 已声明指标契约属外部可观测接口，值不随重构变化 |
+| Redis 键前缀取值 `claim:intake:submit:`、`claim:intake:replay:` | 保持不变 | `RedisCacheConstants` 已声明键结构属运行期契约；改值会让既有幂等回放缓存整体失效 |
+| Lua 脚本路径与发号键 | 保持不变 | 同属运行期契约 |
+| 错误码枚举常量名与错误码字符串（`CLAIM_INTAKE_NOT_FOUND` 等） | 都保持不变，仅类名改为 `SignErrorCode` | 错误码是面向调用方的机器可读契约，常量名与上报值一体，拆开命名会造成误解 |
+| HTTP 路径与请求/响应字段名 | 保持不变 | 对外契约 |
 
 ### 测试
 
@@ -155,7 +166,7 @@ DO 与表名常量持有的数据库物理名（`t_claim_intake`、`intake_statu
 | --- | --- | --- |
 | 租户协议适配位于签收服务而非网关 | `interfaces/tenant/**` 在 `claim-sign-service` | Gateway Spec（需把 Servlet 管道重写为响应式过滤器） |
 | 验签、加解密、`TenantResolver`、`SignatureVerifier` | 未实现 | Gateway Spec |
-| HTTP 路径与库表列仍含 `intake` 词汇 | `/api/v1/claim-intakes`、`t_claim_intake*`、`intake_status` | 对外契约版本化 Spec / 能力轮统一处理 |
+| HTTP 路径、领域错误码字符串、指标名、Redis 键前缀与库表列仍含 `intake` 词汇 | `/api/v1/claim-intakes`、`CLAIM_INTAKE_NOT_FOUND`、`claim.intake.submission`、`claim:intake:submit:`、`t_claim_intake*`、`intake_status` | 对外契约版本化 Spec 与能力轮的数据库重设计一并处理 |
 | `MaterialStatus`、问题件、材料补充、撤销 | 仅有表，无领域模型 | 签收能力 Spec |
 | `PushTask`、`PushRecord`、`PushReceipt`、`InsurerPushAdapter`、`strategy` | 服务仅有启动类，`push_db` 无表 | 案件推送 Spec |
 | 前端六个功能域 | `src` 为空 | 前端 Spec |

@@ -1,6 +1,6 @@
 spring:
   application:
-    name: claim-case-delivery
+    name: claim-case-push-service
   cloud:
     nacos:
       discovery:
