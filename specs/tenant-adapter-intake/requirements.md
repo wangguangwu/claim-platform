@@ -53,7 +53,7 @@ Raw Payload
 - 租户响应转换和 HTTP `ApiResult` 组装。
 - 真实租户协议；当前没有可用的真实租户报文，`reference` 只是打通入口和扩展机制的参考协议，不代表任何真实租户。
 - 新增或修改既有 `/api/v1/claim-intakes` 接口和请求体；本功能新增独立的 `/api/v1/tenant-intakes` 入口。
-- 材料进入 `SubmitIntakeCommand`、材料二进制内容的存储、下载或访问；材料归属仍按 A-1 待决。
+- 材料二进制内容的存储、下载或访问；材料元数据进入标准命令由 `claim-intake-standard-flow` 单独扩展（见 A-1），不在本功能实现。
 - 将 `Person`、`IntakeMaterial` 的字符串字段重构为强类型枚举字段；该项如需要，另立领域模型变更 Spec。
 - 重命名既有 `signNo` 业务编号和 `SIGN_RECEIVE` 交互类型。
 
@@ -182,7 +182,7 @@ WHEN HTTP 入口的上下文解析或报文转换失败 THEN THE SYSTEM SHALL �
 | 申请人字段 | `name`、`certificateType`、`certificateNo`、`mobile`、`gender`、`birthDate`、`relationshipToInsured` |
 | 证件编码 | `IDCARD` → `CertificateType.ID_CARD`，`PASSPORT` → `CertificateType.PASSPORT` |
 | 扩展 JSON | 仅由 `accidentDate` 和协议声明的 `extension` 构造，不序列化完整 DTO |
-| 材料 | 不进入 `SubmitIntakeCommand`；材料归属仍按 A-1 待决 |
+| 材料 | 本功能不映射；标准命令的材料元数据由 `claim-intake-standard-flow` 扩展，`reference` 传空列表（见 A-1） |
 
 ## 失败行为与错误码
 
@@ -213,14 +213,11 @@ WHEN HTTP 入口的上下文解析或报文转换失败 THEN THE SYSTEM SHALL �
 
 ## 假设与待决事项
 
-### A-1 标准命令中的材料
+### A-1 标准命令中的材料（已解决，2026-10-23）
 
-现有 `SubmitIntakeCommand` 只包含人员信息、外部申请编号和扩展 JSON，不包含材料列表；材料目前通过独立的 `UploadMaterialsCommand` 登记。设计中的 `MaterialMapper` 若要输出到同一个完整命令，需要先决定：
+`SubmitIntakeCommand` 已由 `specs/claim-intake-standard-flow/` 扩展，新增不可变 `materials` 列表，并在同一创建事务中与申请、初始状态和 `SIGN_RECEIVE` 日志一起写入。材料非空时初始状态为 `IMAGE_UPLOADED`，为空时为 `IMAGE_NOT_UPLOAD`。
 
-- 扩展 `SubmitIntakeCommand` 并在 Application 签发用例中原子保存材料；或
-- 将材料转换保留到独立的材料上传用例，签发命令只承载申请信息。
-
-在真实租户报文确认前不实现材料映射，避免凭空扩展命令和事务边界。
+本功能的 `reference` 适配器和既有 HTTP 入口均传空列表，不映射材料；真实租户报文中的材料字段仍需在获得首批真实报文后，以独立变更补齐 Parser、Validator、Converter 和编码表。材料二进制内容的上传、存储和下载仍不在上述两个功能的范围内。
 
 ### A-2 枚举与现有字符串字段
 
@@ -238,4 +235,4 @@ WHEN HTTP 入口的上下文解析或报文转换失败 THEN THE SYSTEM SHALL �
 
 ### A-5 实现时机
 
-通用组件、默认 Parser/Validator、注册表和 Pipeline 已实现；`reference` 参考租户适配器与 `POST /api/v1/tenant-intakes` 入口已接入，Pipeline 已有生产调用方。真实租户 DTO、Parser、Validator、Converter 和编码表仍等待首批真实报文（见 A-1、A-3），`reference` 不能替代真实租户验收。材料进入签发命令仍按 A-1 待决。
+通用组件、默认 Parser/Validator、注册表和 Pipeline 已实现；`reference` 参考租户适配器与 `POST /api/v1/tenant-intakes` 入口已接入，Pipeline 已有生产调用方。真实租户 DTO、Parser、Validator、Converter 和编码表仍等待首批真实报文（见 A-1、A-3），`reference` 不能替代真实租户验收。材料进入签发命令已按 A-1 解决，但真实租户材料映射仍未实现。
