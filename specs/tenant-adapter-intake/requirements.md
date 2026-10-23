@@ -4,13 +4,13 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 状态 | In Progress |
+| 状态 | Done（reference 参考协议接入；真实租户协议待替换） |
 | 所属限界上下文 | Claim Intake |
 | 模块 | `backend/claim-intake-service` |
 | 功能分支 | `feat/tenant-adapter-intake` |
 | 关联根需求 | `specs/requirements.md` |
 | 关联 Spec | `specs/application-intake/requirements.md`、`specs/claim-intake-ddd-package-refactor/requirements.md` |
-| 本次交付 | 通用转换框架、默认组件、注册表、Pipeline 与测试租户验证；不包含真实租户适配器、HTTP 接口或数据库变更 |
+| 本次交付 | 通用转换框架、默认组件、注册表、Pipeline、`reference` 参考租户适配器、`POST /api/v1/tenant-intakes` HTTP 入口与异常映射；不包含真实租户协议或数据库变更 |
 
 ## 范围
 
@@ -40,8 +40,10 @@ Raw Payload
 - `RequestParser`、`RequestValidator`、`RequestConverter` 契约；
 - 默认 Parser、默认 Validator 与租户差异组件；
 - 按 `tenantCode + protocolVersion` 匹配的组件注册表；
+- `reference` 参考租户适配器（JSON Parser、公共与差异校验、字段映射、证件编码映射）；
+- `POST /api/v1/tenant-intakes` HTTP 入口、可信头解析、租户上下文生命周期与异常映射；
 - 解析异常、校验异常、编码映射异常和组件缺失异常的语义；
-- 转换层单元测试与架构边界测试要求。
+- 转换层单元测试、入口测试与架构边界测试要求。
 
 ## 非范围
 
@@ -49,9 +51,9 @@ Raw Payload
 - 幂等判断和 `signNo` 生成；现有 Application 用例的 `tenantCode + externalApplyNo` 幂等规则不变。
 - 数据库写入、事务、Outbox、MQ、OSS 和下游同步。
 - 租户响应转换和 HTTP `ApiResult` 组装。
-- 真实租户协议、Tenant DTO、Parser、Validator、Converter 和编码映射表；当前没有可用的真实租户报文。
-- 新增或修改 `/api/v1/claim-intakes` 接口、请求体和可信头契约。
-- 材料二进制内容的存储、下载或访问。
+- 真实租户协议；当前没有可用的真实租户报文，`reference` 只是打通入口和扩展机制的参考协议，不代表任何真实租户。
+- 新增或修改既有 `/api/v1/claim-intakes` 接口和请求体；本功能新增独立的 `/api/v1/tenant-intakes` 入口。
+- 材料进入 `SubmitIntakeCommand`、材料二进制内容的存储、下载或访问；材料归属仍按 A-1 待决。
 - 将 `Person`、`IntakeMaterial` 的字符串字段重构为强类型枚举字段；该项如需要，另立领域模型变更 Spec。
 - 重命名既有 `signNo` 业务编号和 `SIGN_RECEIVE` 交互类型。
 
@@ -63,6 +65,8 @@ Raw Payload
 4. 租户差异只能通过组件注册表达；禁止在 Pipeline 或任一阶段出现基于 `tenantCode` 的 `if` 分支或 `switch`。
 5. 转换失败必须终止流程，不得返回半成品命令，也不得把租户原始编码回填到标准命令。
 6. 日志和异常不得包含 Raw Payload、完整 Tenant DTO、证件号、手机号、银行卡号或其他敏感信息。
+7. HTTP 入口必须先校验服务间调用凭证，再从可信头构造 `TenantContext`；调用 Pipeline 前写入 `TenantContextHolder`，并在 `finally` 中清理。
+8. HTTP 入口不得信任请求体、查询参数或路径中的 `tenantCode`、`protocolVersion`、`traceId`。
 
 ## 验收需求
 
@@ -134,6 +138,52 @@ WHEN 转换层记录日志或构造异常 THEN THE SYSTEM SHALL 只输出 `tenan
 
 WHEN 同一 Raw Payload 和同一租户上下文被重复转换 THEN THE SYSTEM SHALL 返回等价命令，且不得生成 `signNo`、写数据库、发送消息或改变幂等状态。
 
+### FR-TAI-018 可信 HTTP 入口
+
+WHEN 租户报文请求进入 `POST /api/v1/tenant-intakes` THEN THE SYSTEM SHALL 先校验 `X-Claim-Service-Token`，再仅从 `X-Claim-Tenant`、`X-Claim-Protocol-Version` 和可选 `X-Trace-Id` 构造租户上下文，在调用 Pipeline 前写入 `TenantContextHolder`，并在 `finally` 中清理。
+
+### FR-TAI-019 入口失败响应
+
+WHEN HTTP 入口的上下文解析或报文转换失败 THEN THE SYSTEM SHALL 返回 `ApiResult` 失败信封、稳定错误码和 `traceId`，且响应和日志不得包含原始报文、字段值或异常堆栈详情。
+
+## HTTP 入口契约
+
+本功能新增独立入口，不修改既有 `/api/v1/claim-intakes`。
+
+| 项目 | 契约 |
+| --- | --- |
+| 方法 | `POST` |
+| 路径 | `/api/v1/tenant-intakes` |
+| 请求体 | 当前租户协议的 Raw Payload；`reference` 协议使用 JSON |
+| 成功响应 | HTTP 200，`ApiResult<ClaimIntakeResult>`，包含 `signNo` 和 `status` |
+| 幂等 | 复用 `ClaimIntakeCommandService.submit` 的 `tenantCode + externalApplyNo` 规则 |
+
+请求头：
+
+| 请求头 | 必填 | 规则 |
+| --- | --- | --- |
+| `X-Claim-Service-Token` | 是 | 与现有服务间调用凭证一致，复用 `GatewayRequestContextResolver` |
+| `X-Claim-Tenant` | 是 | `[A-Za-z0-9_-]{1,64}`，只来自可信 Gateway |
+| `X-Claim-Protocol-Version` | 是 | `[A-Za-z0-9._-]{1,32}`，不提供缺省版本，不做跨版本回退 |
+| `X-Trace-Id` | 否 | 缺失时由服务生成 UUID |
+
+入口不接受请求体、查询参数或路径中的租户和协议版本字段；请求体中的同名字段不会参与路由。
+
+## 参考租户协议
+
+`reference` 是用于打通入口、验证扩展机制和回归测试的参考协议，不是任何真实租户协议。真实租户接入时必须新增独立租户包和编码表，不得复用 `reference` 的键冒充真实租户。
+
+| 项目 | 内容 |
+| --- | --- |
+| `tenantCode` | `reference` |
+| `protocolVersion` | `v1` |
+| 报文格式 | JSON，未知字段拒绝 |
+| 顶层字段 | `externalApplyNo`、`applicant`、`accidentDate`、`extension`；可携带 `tenantCode`、`protocolVersion`，但转换层忽略 |
+| 申请人字段 | `name`、`certificateType`、`certificateNo`、`mobile`、`gender`、`birthDate`、`relationshipToInsured` |
+| 证件编码 | `IDCARD` → `CertificateType.ID_CARD`，`PASSPORT` → `CertificateType.PASSPORT` |
+| 扩展 JSON | 仅由 `accidentDate` 和协议声明的 `extension` 构造，不序列化完整 DTO |
+| 材料 | 不进入 `SubmitIntakeCommand`；材料归属仍按 A-1 待决 |
+
 ## 失败行为与错误码
 
 以下映射面向未来的入口适配器；本功能不新增或修改现有 HTTP 接口。
@@ -145,15 +195,17 @@ WHEN 同一 Raw Payload 和同一租户上下文被重复转换 THEN THE SYSTEM 
 | 编码无法映射 | `IntakeCodeMappingException` | `REQUEST_VALIDATION_FAILED` | 400 | 按协议修正编码；平台补充映射后发布新版本 |
 | 租户或协议版本未注册 | `TenantProtocolNotSupportedException` | `TENANT_PROTOCOL_NOT_SUPPORTED` | 400 | 核对 `tenantCode`、`protocolVersion`；由平台注册适配器 |
 | 缺少可信租户上下文 | `TenantContextMissingException` | `TENANT_CONTEXT_MISSING` | 400 | 经可信入口补齐上下文后重试 |
+| 协议版本头格式非法 | `IllegalArgumentException` | `REQUEST_VALIDATION_FAILED` | 400 | 按 `[A-Za-z0-9._-]{1,32}` 修正后重试 |
 | 未预期异常 | 无 | `INTERNAL_ERROR` | 500 | 携带 `traceId` 联系平台 |
 
-`TENANT_PROTOCOL_NOT_SUPPORTED` 是本功能新增的稳定错误码，仅在后续入口适配器接入时对外生效。其触发条件是当前租户与协议版本没有完整注册组件，调用方不得通过修改 payload 中的租户或版本字段绕过。
+`TENANT_PROTOCOL_NOT_SUPPORTED` 在 `/api/v1/tenant-intakes` 入口生效，既有 `/api/v1/claim-intakes` 行为不变。其触发条件是当前租户与协议版本没有完整注册组件，调用方不得通过修改 payload 中的租户或版本字段绕过。
 
 ## 幂等与兼容性影响
 
 - 转换层是无状态、只读的协议适配过程，不定义幂等键，不写数据库，不发送消息。
 - 现有签发用例仍以 `tenantCode + externalApplyNo` 作为天然幂等键；重复转换不会影响该规则。
-- 本功能不修改数据库 Schema、领域事件、配置项、HTTP API 或现有 `SubmitIntakeCommand` 字段。
+- 本功能不修改数据库 Schema、领域事件、配置项或现有 `SubmitIntakeCommand` 字段；新增独立 HTTP 入口 `/api/v1/tenant-intakes`，既有 `/api/v1/claim-intakes` 的路径、请求体和错误行为不变。
+- `reference` 租户通过组件注册接入，不修改 Pipeline、注册表或既有租户组件；真实租户新增时按同一方式注册。
 - 新增类、包和文档统一使用 `Intake` 语义，不新增 `Sign*` 类型；`signNo` 作为既有业务编号保留。
 - 既有 `SIGN_RECEIVE` 交互类型不在本次重命名范围内，避免改变已有审计数据语义。
 - 组件注册是增量扩展；新增租户或版本不得要求修改既有租户组件或 Pipeline。
@@ -180,8 +232,10 @@ WHEN 同一 Raw Payload 和同一租户上下文被重复转换 THEN THE SYSTEM 
 
 ### A-4 租户上下文位置与协议版本来源
 
-已确认先限制在 Claim Intake 内部：`TenantContext` 与 `TenantContextHolder` 位于 `interfaces/tenant/core/context`，不进入 `claim-common`，避免扩大共享契约。入口适配器负责从可信 Gateway 头读取上下文、在调用 Pipeline 前写入 Holder，并在 `finally` 中清理。`protocolVersion` 的具体请求头名称、缺省规则和 Gateway 契约仍需在接入 Spec 中确认；转换层不得自行猜测。
+已确认先限制在 Claim Intake 内部：`TenantContext` 与 `TenantContextHolder` 位于 `interfaces/tenant/core/context`，不进入 `claim-common`，避免扩大共享契约。入口适配器负责从可信 Gateway 头读取上下文、在调用 Pipeline 前写入 Holder，并在 `finally` 中清理。
+
+`protocolVersion` 的可信来源确定为请求头 `X-Claim-Protocol-Version`：必填，格式 `[A-Za-z0-9._-]{1,32}`，不提供缺省版本，不做跨版本回退。`tenantCode` 复用 `X-Claim-Tenant`，`traceId` 复用可选 `X-Trace-Id`，调用方凭证复用 `X-Claim-Service-Token`。Gateway 必须清除客户端伪造的上述头后再透传，本服务不信任请求体中的租户和版本字段。
 
 ### A-5 实现时机
 
-通用组件、默认 Parser/Validator、注册表和 Pipeline 已按明确开发指令实现，并使用测试范围内的租户组件验证扩展机制；真实租户 DTO、Parser、Validator、Converter 和编码表仍等待首批真实报文（见 A-1、A-3）。在入口适配器接入前，Pipeline 暂无生产调用方，这是当前已知限制；接入时必须先完成 TK-TAI-002、TK-TAI-005 和 TK-TAI-006 的门禁。
+通用组件、默认 Parser/Validator、注册表和 Pipeline 已实现；`reference` 参考租户适配器与 `POST /api/v1/tenant-intakes` 入口已接入，Pipeline 已有生产调用方。真实租户 DTO、Parser、Validator、Converter 和编码表仍等待首批真实报文（见 A-1、A-3），`reference` 不能替代真实租户验收。材料进入签发命令仍按 A-1 待决。

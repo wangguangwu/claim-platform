@@ -4,6 +4,11 @@ import com.claim.platform.intake.domain.exception.InvalidIntakeStatusException;
 import com.claim.platform.intake.domain.exception.ConcurrentIntakeModificationException;
 import com.claim.platform.intake.domain.exception.ClaimIntakeNotFoundException;
 import com.claim.platform.common.web.ApiResult;
+import com.claim.platform.intake.interfaces.tenant.core.exception.IntakeCodeMappingException;
+import com.claim.platform.intake.interfaces.tenant.core.exception.IntakeConversionException;
+import com.claim.platform.intake.interfaces.tenant.core.exception.IntakePayloadParseException;
+import com.claim.platform.intake.interfaces.tenant.core.exception.IntakeRequestValidationException;
+import com.claim.platform.intake.interfaces.tenant.core.exception.TenantProtocolNotSupportedException;
 import com.claim.platform.intake.interfaces.web.context.GatewayRequestContextResolver;
 import com.claim.platform.intake.interfaces.web.exception.TenantContextMissingException;
 import com.claim.platform.intake.interfaces.web.exception.UntrustedCallerException;
@@ -57,6 +62,41 @@ public class ClaimIntakeExceptionHandler {
     @ExceptionHandler(TenantContextMissingException.class)
     public ResponseEntity<ApiResult<Void>> missingTenant(TenantContextMissingException exception, HttpServletRequest request) {
         return failure(HttpStatus.BAD_REQUEST, "TENANT_CONTEXT_MISSING", "缺少租户上下文", traceId(request));
+    }
+
+    /**
+     * 返回租户报文结构非法，只记录字段路径和 traceId，不记录原始报文。
+     */
+    @ExceptionHandler(IntakePayloadParseException.class)
+    public ResponseEntity<ApiResult<Void>> malformedPayload(IntakePayloadParseException exception,
+                                                             HttpServletRequest request) {
+        String traceId = traceId(request);
+        LOGGER.warn("tenant intake parse failed fieldPath={} traceId={}", exception.fieldPath(), traceId);
+        return failure(HttpStatus.BAD_REQUEST, "MALFORMED_REQUEST", "请求报文格式不合法", traceId);
+    }
+
+    /**
+     * 返回公共/租户校验或编码映射失败，响应只包含固定文案。
+     */
+    @ExceptionHandler({IntakeRequestValidationException.class, IntakeCodeMappingException.class})
+    public ResponseEntity<ApiResult<Void>> tenantRequestValidation(IntakeConversionException exception,
+                                                                   HttpServletRequest request) {
+        String traceId = traceId(request);
+        LOGGER.warn("tenant intake {} failed fieldPath={} traceId={}",
+                exception.getClass().getSimpleName(), exception.fieldPath(), traceId);
+        return failure(HttpStatus.BAD_REQUEST, "REQUEST_VALIDATION_FAILED", "请求参数不合法", traceId);
+    }
+
+    /**
+     * 返回当前租户与协议版本没有完整注册组件的失败，不做跨租户或跨版本回退。
+     */
+    @ExceptionHandler(TenantProtocolNotSupportedException.class)
+    public ResponseEntity<ApiResult<Void>> tenantProtocolNotSupported(TenantProtocolNotSupportedException exception,
+                                                                      HttpServletRequest request) {
+        String traceId = traceId(request);
+        LOGGER.warn("tenant protocol not supported tenantCode={} protocolVersion={} traceId={}",
+                exception.tenantCode(), exception.protocolVersion(), traceId);
+        return failure(HttpStatus.BAD_REQUEST, "TENANT_PROTOCOL_NOT_SUPPORTED", "租户协议不支持", traceId);
     }
 
     /**

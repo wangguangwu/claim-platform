@@ -1,6 +1,6 @@
 # 租户签收报文转换层设计
 
-> 状态：In Progress。通用框架、默认组件、注册表和 Pipeline 已实现并通过测试租户验证；真实租户适配器与入口仍待接入。
+> 状态：Done（reference 参考协议）。通用框架、默认组件、注册表和 Pipeline 已实现；`reference` 参考租户适配器与 `POST /api/v1/tenant-intakes` 入口已接入。真实租户协议仍待替换。
 
 ## 1. 目标与边界
 
@@ -54,49 +54,66 @@ com.claim.platform.intake
 │     ├─ CertificateType
 │     └─ IntakeMaterialType
 └─ interfaces
-   └─ tenant
-      ├─ core
-      │  ├─ pipeline
-      │  │  ├─ IntakeConvertPipeline
-      │  │  └─ DefaultIntakeConvertPipeline
-      │  ├─ parser
-      │  │  ├─ RequestParser
-      │  │  └─ DefaultJsonParser
-      │  ├─ validator
-      │  │  ├─ RequestValidator
-      │  │  └─ DefaultRequestValidator
-      │  ├─ converter
-      │  │  ├─ RequestConverter
-      │  │  └─ CodeMapper
-      │  ├─ context
-      │  │  ├─ TenantContext
-      │  │  └─ TenantContextHolder
-      │  ├─ registry
-      │  │  ├─ TenantProtocolKey
-      │  │  ├─ TenantProtocolHandler
-      │  │  └─ TenantProtocolHandlerRegistry
-      │  └─ exception
-      │     ├─ IntakeConversionException
-      │     ├─ IntakePayloadParseException
-      │     ├─ IntakeRequestValidationException
-      │     ├─ IntakeCodeMappingException
-      │     └─ TenantProtocolNotSupportedException
-      └─ <tenant-alias>
-         ├─ dto
-         ├─ parser
-         ├─ validator
-         ├─ converter
-         └─ mapper
+   ├─ tenant
+   │  ├─ core
+   │  │  ├─ pipeline
+   │  │  │  ├─ IntakeConvertPipeline
+   │  │  │  └─ DefaultIntakeConvertPipeline
+   │  │  ├─ parser
+   │  │  │  ├─ RequestParser
+   │  │  │  └─ DefaultJsonParser
+   │  │  ├─ validator
+   │  │  │  ├─ RequestValidator
+   │  │  │  └─ DefaultRequestValidator
+   │  │  ├─ converter
+   │  │  │  ├─ RequestConverter
+   │  │  │  └─ CodeMapper
+   │  │  ├─ context
+   │  │  │  ├─ TenantContext
+   │  │  │  └─ TenantContextHolder
+   │  │  ├─ registry
+   │  │  │  ├─ TenantProtocolKey
+   │  │  │  ├─ TenantProtocolHandler
+   │  │  │  └─ TenantProtocolHandlerRegistry
+   │  │  └─ exception
+   │  │     ├─ IntakeConversionException
+   │  │     ├─ IntakePayloadParseException
+   │  │     ├─ IntakeRequestValidationException
+   │  │     ├─ IntakeCodeMappingException
+   │  │     └─ TenantProtocolNotSupportedException
+   │  ├─ reference
+   │  │  ├─ dto
+   │  │  │  ├─ ReferenceIntakePayload
+   │  │  │  └─ ReferenceApplicantPayload
+   │  │  ├─ validator
+   │  │  │  └─ ReferenceRequestValidator
+   │  │  ├─ converter
+   │  │  │  └─ ReferenceRequestConverter
+   │  │  └─ ReferenceProtocolHandler
+   │  └─ <tenant-alias>
+   │     ├─ dto
+   │     ├─ parser
+   │     ├─ validator
+   │     ├─ converter
+   │     └─ mapper
+   └─ web
+      ├─ controller
+      │  └─ TenantIntakeController
+      └─ context
+         ├─ GatewayRequestContextResolver
+         └─ TenantIntakeContextResolver
 ```
 
 约束：
 
 - `<tenant-alias>` 使用小写、可安全作为 Java 包名的租户别名，不直接使用可能包含大写、连字符或下划线的原始 `tenantCode`。
+- `reference` 是参考协议包，不是真实租户；真实租户必须使用独立包，不得复用 `reference` 的协议键。
 - 租户 DTO 只能存在于 `interfaces/tenant/<tenant-alias>/dto`，不得被 `application` 或 `domain` 引用。
 - `application` 只依赖 `SubmitIntakeCommand`，不依赖任何 `interfaces/tenant` 类型。
 - `domain` 不依赖 Parser、Validator、Converter、Jackson、Jakarta Validation 或任何租户协议类型。
 - `CertificateType`、`IntakeMaterialType` 是平台标准枚举，放在 `domain/model`；转换层负责映射，领域字段的强类型化另行设计。
-- `TenantContext`、`TenantContextHolder` 先放在 `interfaces/tenant/core/context`，暂不进入 `claim-common`，避免扩大共享契约；入口适配器负责写入与清理。
+- `TenantContext`、`TenantContextHolder` 先放在 `interfaces/tenant/core/context`，暂不进入 `claim-common`，避免扩大共享契约；`TenantIntakeController` 负责写入与清理。
+- HTTP 入口属于 `interfaces/web`，只做鉴权头校验、上下文构造、Holder 生命周期、Pipeline 调用和 `ApiResult` 封装，不包含租户字段映射或编码转换。
 
 ## 3. 核心契约
 
@@ -402,7 +419,7 @@ public record TenantContext(String tenantCode, String protocolVersion, String tr
 }
 ```
 
-`TenantContext` 与 `TenantContextHolder` 先位于 `interfaces/tenant/core/context`，不进入 `claim-common`，由入口适配器负责：
+`TenantContext` 与 `TenantContextHolder` 位于 `interfaces/tenant/core/context`，不进入 `claim-common`，由入口适配器负责：
 
 1. 从可信 Gateway 头读取 `tenantCode`、`protocolVersion` 和 `traceId`；
 2. 在调用 Pipeline 前写入 Holder；
@@ -411,9 +428,84 @@ public record TenantContext(String tenantCode, String protocolVersion, String tr
 
 Pipeline 在入口处解析一次上下文；Parser 和 Validator 不重复接收它，Converter 接收同一个不可变快照，只用于填充命令的可信元数据。任何阶段都不从 payload 读取 `tenantCode`、`protocolVersion` 或 `traceId`。
 
-`protocolVersion` 的具体请求头名称、缺省值、版本格式和 Gateway 透传契约尚未确定，必须在入口接入 Spec 中明确。转换层只消费上下文，不定义协议版本来源。
+可信头契约：
 
-当前通用框架只提供 Holder 与 Pipeline 读取；真实入口适配器的写入、`finally` 清理和协议版本校验随 TK-TAI-006 实现。Pipeline 在缺少上下文时复用现有 `TenantContextMissingException`，入口接入时由统一异常处理器映射为 `TENANT_CONTEXT_MISSING`。
+| 请求头 | 必填 | 规则 | 处理 |
+| --- | --- | --- | --- |
+| `X-Claim-Service-Token` | 是 | 与现有内部凭证一致 | 复用 `GatewayRequestContextResolver`，失败返回 `UNTRUSTED_CALLER` 401 |
+| `X-Claim-Tenant` | 是 | `[A-Za-z0-9_-]{1,64}` | 缺失或非法返回 `TENANT_CONTEXT_MISSING` 400 |
+| `X-Claim-Protocol-Version` | 是 | `[A-Za-z0-9._-]{1,32}` | 缺失返回 `TENANT_CONTEXT_MISSING` 400；格式非法返回 `REQUEST_VALIDATION_FAILED` 400 |
+| `X-Trace-Id` | 否 | 非空文本 | 缺失时生成 UUID |
+
+不提供 `protocolVersion` 缺省值，不做跨版本回退。Gateway 必须清除客户端伪造的同名头后再透传；本服务不信任请求体、查询参数或路径中的租户和版本字段。
+
+### 7.1 HTTP 入口
+
+`POST /api/v1/tenant-intakes` 是租户 Raw Payload 的唯一 HTTP 入口，既有 `/api/v1/claim-intakes` 继续由 `ClaimIntakeController` 服务，两者互不改写。
+
+```text
+POST /api/v1/tenant-intakes
+Headers: X-Claim-Service-Token / X-Claim-Tenant / X-Claim-Protocol-Version / X-Trace-Id?
+Body: Raw Payload
+        ↓
+TenantIntakeContextResolver
+        ↓
+TenantContextHolder.set
+        ↓
+IntakeConvertPipeline.execute
+        ↓
+TenantContextHolder.clear（finally）
+        ↓
+ClaimIntakeCommandService.submit
+        ↓
+ApiResult<ClaimIntakeResult>
+```
+
+- `TenantIntakeContextResolver` 先调用现有 `GatewayRequestContextResolver` 校验服务间凭证并取得 `tenantCode`、`traceId`，再读取并校验 `X-Claim-Protocol-Version`，返回 `TenantContext`。
+- `TenantIntakeController` 只在 Pipeline 调用期间持有 Holder；Pipeline 返回后立即清理，再提交 Application 命令，避免数据库事务或下游调用继承 ThreadLocal。
+- 入口不消费 `tenantCode`、`protocolVersion` 请求体字段；这些字段即使出现在 Raw Payload 中也不会参与路由。
+- 入口不生成 `signNo`、不写数据库、不发消息；幂等仍由 Application 的 `tenantCode + externalApplyNo` 规则保证。
+
+### 7.2 reference 参考租户
+
+`reference` 用于打通入口、验证扩展机制和回归测试，不是任何真实租户协议。真实租户必须使用独立包和独立协议键，不能复用 `reference` 冒充。
+
+| 项目 | 内容 |
+| --- | --- |
+| 协议键 | `tenantCode=reference`，`protocolVersion=v1` |
+| Parser | 复用 `DefaultJsonParser<ReferenceIntakePayload>`，拒绝未知字段和尾随内容 |
+| Validator | `ReferenceRequestValidator` 先执行 `DefaultRequestValidator`，再校验 `applicant.relationshipToInsured` |
+| Converter | `ReferenceRequestConverter` 显式映射字段、证件编码和扩展 JSON |
+| 注册 | `ReferenceProtocolHandler` 标注 `@Component`，由 `TenantProtocolHandlerRegistry` 启动时收集 |
+
+请求示例：
+
+```json
+{
+  "externalApplyNo": "EXT-001",
+  "tenantCode": "forged-tenant",
+  "protocolVersion": "v9",
+  "accidentDate": "2026-10-01",
+  "applicant": {
+    "name": "张三",
+    "certificateType": "IDCARD",
+    "certificateNo": "110101199001011234",
+    "mobile": "13800138000",
+    "gender": "M",
+    "birthDate": "1990-01-01",
+    "relationshipToInsured": "SELF"
+  },
+  "extension": {
+    "channel": "APP"
+  }
+}
+```
+
+- `tenantCode`、`protocolVersion` 字段即使出现也不参与路由；实际值只来自可信头。
+- 证件编码映射：`IDCARD → CertificateType.ID_CARD`，`PASSPORT → CertificateType.PASSPORT`；未知编码抛出 `IntakeCodeMappingException("applicant.certificateType")`。
+- `extJson` 只包含 `accidentDate` 和 `extension`，按 key 排序；不序列化完整 `ReferenceIntakePayload`。
+- 材料不进入 `SubmitIntakeCommand`；材料归属和材料编码进入签发命令仍按 A-1 待决。
+- 真实租户接入时新增 `interfaces/tenant/<tenant-alias>` 包和 `TenantProtocolHandler` Bean，不修改 Pipeline、注册表或 `reference` 组件。
 
 ## 8. 失败处理与可观测性
 
@@ -459,18 +551,21 @@ Raw Payload
 
 ### 8.3 HTTP 映射边界
 
-本功能不新增 HTTP 入口。未来入口适配器按以下稳定错误码映射：
+`POST /api/v1/tenant-intakes` 由 `ClaimIntakeExceptionHandler` 统一映射以下稳定错误码；既有 `/api/v1/claim-intakes` 的既有映射不变：
 
-| 异常 | 错误码 | HTTP 状态 |
-| --- | --- | --- |
-| `IntakePayloadParseException` | `MALFORMED_REQUEST` | 400 |
-| `IntakeRequestValidationException` | `REQUEST_VALIDATION_FAILED` | 400 |
-| `IntakeCodeMappingException` | `REQUEST_VALIDATION_FAILED` | 400 |
-| `TenantProtocolNotSupportedException` | `TENANT_PROTOCOL_NOT_SUPPORTED` | 400 |
-| `TenantContextMissingException` | `TENANT_CONTEXT_MISSING` | 400 |
-| 其他未预期异常 | `INTERNAL_ERROR` | 500 |
+| 异常 | 错误码 | HTTP 状态 | 日志 |
+| --- | --- | --- | --- |
+| `IntakePayloadParseException` | `MALFORMED_REQUEST` | 400 | stage、fieldPath、traceId |
+| `IntakeRequestValidationException` | `REQUEST_VALIDATION_FAILED` | 400 | stage、fieldPath、traceId |
+| `IntakeCodeMappingException` | `REQUEST_VALIDATION_FAILED` | 400 | stage、fieldPath、traceId |
+| `TenantProtocolNotSupportedException` | `TENANT_PROTOCOL_NOT_SUPPORTED` | 400 | tenantCode、protocolVersion、traceId |
+| `TenantContextMissingException` | `TENANT_CONTEXT_MISSING` | 400 | traceId |
+| `IllegalArgumentException`（协议版本头格式非法） | `REQUEST_VALIDATION_FAILED` | 400 | traceId |
+| 其他未预期异常 | `INTERNAL_ERROR` | 500 | exceptionType、traceId、堆栈 |
 
-`TENANT_PROTOCOL_NOT_SUPPORTED` 在接入入口前只作为内部异常语义存在，不对现有 API 生效。
+- 转换异常不打印完整堆栈，只记录安全元数据；`IntakeConversionException` 的 `fieldPath()` 可用于定位，不能记录字段值。
+- `TenantProtocolNotSupportedException` 只在新入口生效，不改变既有 API。
+- 响应只返回固定文案、错误码和 `traceId`，不返回异常消息、原始报文或字段值。
 
 ## 9. 并发、幂等与数据归属
 
@@ -500,23 +595,28 @@ Raw Payload
 | TEST-TAI-013 | FR-TAI-016 | 日志和异常不包含原始报文、证件号、手机号等敏感信息 |
 | TEST-TAI-014 | FR-TAI-017 | 重复转换返回等价命令，且无数据库、MQ 或幂等副作用 |
 | TEST-TAI-015 | FR-TAI-011、FR-TAI-012 | 架构测试：`application`/`domain` 不依赖 `interfaces.tenant`；不存在基于 `tenantCode` 的分支或 `switch` |
+| TEST-TAI-016 | FR-TAI-018 | 可信头解析：合法头返回上下文；缺少协议版本头被拒绝；格式非法被拒绝；凭证错误被拒绝 |
+| TEST-TAI-017 | FR-TAI-001、FR-TAI-004、FR-TAI-006、FR-TAI-014、FR-TAI-019 | 入口成功响应、Holder 写入与清理、解析/校验/编码/协议未注册异常的 400 映射 |
+| TEST-TAI-018 | FR-TAI-003 至 FR-TAI-009、FR-TAI-015 | `reference` 适配器解析、公共与差异校验、证件编码映射、完整命令、重复转换等价和 Spring 注册 |
 
 测试落地建议：
 
 - 使用 JUnit 5、AssertJ 和现有 Mockito 技术栈；
 - 使用测试租户组件验证扩展机制，不把测试 DTO 放入生产包；
+- `reference` 适配器测试直接使用生产组件，入口测试使用 `@WebMvcTest` 并隔离 Application；
 - 架构边界使用源码扫描测试验证（`TenantAdapterArchitectureTest`），未引入 ArchUnit；
 - XML 测试只在引入真实 XML 租户后补充，不为假设需求增加依赖。
 
 ## 11. 兼容性与迁移
 
-- 本功能只新增 Spec，不修改已有 API、数据库、领域事件或配置。
-- 现有 `interfaces/web/request/CreateIntakeRequest` 和 `PersonRequestConverter` 继续服务 `/api/v1/claim-intakes`，不迁移到本转换层；本转换层只服务后续租户 Raw Payload 入口。
-- 后续实现是增量代码，不改变现有 `/api/v1/claim-intakes` 的行为。
+- 不修改数据库、领域事件或配置；新增独立 HTTP 入口 `/api/v1/tenant-intakes`，既有 `/api/v1/claim-intakes` 的路径、请求体和错误映射不变。
+- 现有 `interfaces/web/request/CreateIntakeRequest` 和 `PersonRequestConverter` 继续服务 `/api/v1/claim-intakes`，不迁移到本转换层；本转换层只服务租户 Raw Payload 入口。
+- 入口复用现有 `X-Claim-Service-Token`、`X-Claim-Tenant`、`X-Trace-Id` 约定，新增必填头 `X-Claim-Protocol-Version`；Gateway 需按 Spec 透传，不改变既有接口对这些头的使用。
 - 新增类统一使用 `Intake` 命名，不新增 `Sign*` 类；`signNo` 保留。
 - 既有 `SIGN_RECEIVE` 交互类型不改名，避免改变已有审计数据语义。
 - 新增租户和协议版本通过注册完成，不要求修改既有组件。
-- `TENANT_PROTOCOL_NOT_SUPPORTED` 只在入口适配器接入后进入对外错误契约；届时需要同步更新入口 Spec。
+- `TENANT_PROTOCOL_NOT_SUPPORTED` 在 `/api/v1/tenant-intakes` 生效；既有 API 不返回该错误码。
+- `reference` 是参考协议，不是生产租户；真实租户接入不构成对 `reference` 的兼容承诺。
 
 ### 命名收敛
 
@@ -529,16 +629,18 @@ Raw Payload
 
 ## 12. 已知缺口与待决事项
 
-1. **材料归属**：现有 `SubmitIntakeCommand` 不包含材料。设计中的 `MaterialMapper` 需要先决定是扩展签发命令并同步扩展 Application 事务，还是把材料映射留在独立上传用例。真实租户报文确认前不实现。
-2. **协议版本来源**：需要入口接入 Spec 明确可信头、缺省规则和 Gateway 契约。
-3. **真实租户协议**：当前没有 Tenant DTO、编码表和样例报文，首批 Parser/Validator/Converter 无法实现。
-4. **枚举强类型化**：已新增 `CertificateType`、`IntakeMaterialType` 标准枚举供转换层收敛；`Person.certificateType()` 与 `IntakeMaterial.type()` 仍为字符串，是否改为枚举字段另行评审。
-5. **XML 依赖**：仅在真实租户要求时引入，并完成 XML 安全配置。
-6. **实现时机**：通用框架、默认组件、注册表和 Pipeline 已实现；真实租户组件、材料命令归属和入口适配仍按 TK-TAI-002/005/006 门禁等待。
+1. **材料归属**：现有 `SubmitIntakeCommand` 不包含材料。设计中的 `MaterialMapper` 需要先决定是扩展签发命令并同步扩展 Application 事务，还是把材料映射留在独立上传用例。真实租户报文确认前不实现；`reference` 也不承载材料。
+2. **真实租户协议**：当前没有真实 Tenant DTO、编码表和样例报文，`reference` 仅为参考协议，不能替代真实租户验收。
+3. **枚举强类型化**：已新增 `CertificateType`、`IntakeMaterialType` 标准枚举供转换层收敛；`Person.certificateType()` 与 `IntakeMaterial.type()` 仍为字符串，是否改为枚举字段另行评审。
+4. **XML 依赖**：仅在真实租户要求时引入，并完成 XML 安全配置。
+5. **Gateway 契约**：`X-Claim-Protocol-Version` 已在本功能定义；Gateway 必须清除客户端伪造头并透传，实际网关改造需在 Gateway 功能 Spec 中落地。
+6. **真实租户接入**：新增 `interfaces/tenant/<tenant-alias>` 组件包并注册协议键即可，不修改 Pipeline；真实租户的字段说明、编码表和样例报文仍是外部输入。
 
 ## 13. 实现状态（2026-10-23）
 
 - 已实现：`interfaces/tenant/core` 下的 Pipeline、Parser/Validator/Converter 契约与默认实现、`CodeMapper`、组件注册表、异常层次、`TenantContext`/`TenantContextHolder`；`domain/model` 下新增 `CertificateType`、`IntakeMaterialType`。
+- 参考租户：`interfaces/tenant/reference` 下新增 `ReferenceIntakePayload`、`ReferenceApplicantPayload`、`ReferenceRequestValidator`、`ReferenceRequestConverter` 和 `ReferenceProtocolHandler`，以 `reference/v1` 注册；仅用于打通入口和验证扩展机制，不代表真实租户。
+- HTTP 入口：新增 `TenantIntakeContextResolver`、`TenantIntakeController`（`POST /api/v1/tenant-intakes`），并在 `ClaimIntakeExceptionHandler` 中补充转换异常映射。
 - 测试租户：`src/test/java/.../interfaces/tenant/support` 下的 DTO、Parser、Validator、Converter，仅用于验证扩展机制，不进入生产包。
-- 测试：6 个测试类、36 个用例覆盖 TEST-TAI-001 至 TEST-TAI-015；`mvn -pl backend/claim-intake-service -am verify` 通过（claim-intake-service 55 个测试，新增 36 个、既有 19 个）。
-- 未实现：真实租户组件、材料进入签发命令、HTTP 入口与 `TENANT_PROTOCOL_NOT_SUPPORTED` 对外映射。
+- 测试：新增上下文解析、入口、reference 适配器和 Spring 注册测试；具体数量和 `mvn verify` 结果见 `tasks.md`。
+- 未实现：真实租户组件、材料进入签发命令、XML 解析和 Gateway 实际改造。
