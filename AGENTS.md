@@ -1,19 +1,28 @@
-# Agent 执行规则
+# Agent 开发入口
 
-## 怎么干活
+本文件只做入口和导航，不写具体规则。每条规则只有一个归属文件，需要细节时直接读归属文件；发现同一规则出现在两处，以归属文件为准并报告冲突。
 
-- 需求来自当前对话，验收靠编译与测试。不为功能新建 Spec 目录，不写需求/设计/任务三件套、追踪矩阵和逐任务证据回写。
-- 稳定业务与架构约束以 `specs/requirements.md` 为准；与本文件冲突时以根需求为准，并把冲突说清楚，不猜业务规则。
-- `specs/archive/` 只在追溯历史决策时读取，不参与日常开发上下文。
-- 只读取命中当前改动的专项规范：`standards/java.md`、`standards/ddd.md`、`standards/frontend.md`、`standards/error-handling.md`、`standards/git.md`。
+## 执行顺序
 
-## 三条硬性检查
+接到任务后按这个顺序走：
 
-1. 动手前确认工作区不会覆盖或混入用户已有改动（`standards/git.md`）。
-2. 交付前跑通校验：后端 `mvn verify`，前端 `npm run build`；未通过不交付。
-3. 不合并 `main`、不 force push、不自行批准审核。
+1. 读 `docs/specs/baseline.md` 中与任务相关的章节，确认范围、约束和所属限界上下文。
+2. 按 `docs/engineering/workflow.md` 执行任务生命周期（工作区检查 → 分支 → Spec 准备 → 开发 → 验证 → 提交 → 结束条件）。
+3. 判定为 Feature 级改动时，按 `docs/engineering/specification.md` 建立并维护 `docs/specs/<feature-name>/`。
+4. 动手改代码前读 `docs/engineering/implementation.md`，按语言与契约细则执行。
 
-## 确实需要写文档时
+## 规则归属
 
-- 用一份不超过 20 行的简短说明：目标、范围、不做什么、怎么验收。放在功能所在模块目录或提交说明里，不建目录、不做编号回链。
-- 修改跨上下文 API、领域事件、数据库边界、租户模型或根约束时，先更新 `specs/requirements.md` 再动代码。
+| 文件 | 负责的问题 |
+| --- | --- |
+| `docs/specs/baseline.md` | 产品范围、核心业务规则、技术约束、架构与分层、全局需求、范围之外 |
+| `docs/engineering/workflow.md` | 开发生命周期与全部 Git 操作：工作区、分支、同步、提交、推送、审核、合并、验证门禁、任务结束条件 |
+| `docs/engineering/specification.md` | Spec 的建与不建、`requirements.md` / `design.md` / `tasks.md` 的职责边界与一致性规则、归档 |
+| `docs/engineering/implementation.md` | 代码修改规范：先查后写、复用、新类职责与位置、范围纪律、测试、Java / 前端 / HTTP 契约细则 |
+| `README.md` | 项目导航与技术基线速览，不作为规则或需求依据 |
+
+## 冲突与不确定
+
+- 权威顺序与基线变更规则见 `docs/specs/baseline.md`「与功能 Spec 的关系」。
+- 业务规则、数据归属或需求含义不明确时，按 `docs/engineering/workflow.md` 第 1 节先向用户确认，不自行扩展流程。
+- `docs/specs/archive/` 只在追溯历史决策时读取，不参与当前任务的规范依据。

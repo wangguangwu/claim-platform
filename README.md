@@ -13,9 +13,10 @@ claim-platform/
 │   ├── claim-case-delivery/   # Case Delivery：案件推送限界上下文
 │   └── claim-common/          # 无领域规则的共享技术能力与稳定契约
 ├── docker/                    # Dockerfile、Compose 与本地容器资源
-├── specs/                     # 根约束与历史功能证据
-├── standards/                 # DDD、语言、前端、错误处理与提交规范
-├── AGENTS.md                  # Agent 执行规则
+├── docs/                      # 规范与需求文档
+│   ├── specs/                 # 项目基线、功能 Spec 与历史归档
+│   └── engineering/           # 流程、Spec 与代码规范
+├── AGENTS.md                  # Agent 开发入口与规则导航
 └── README.md                  # 项目入口与治理导航
 ```
 
@@ -30,14 +31,16 @@ claim-platform/
 
 | 文件或目录 | 职责 | 是否作为实现依据 |
 | --- | --- | --- |
-| [specs/requirements.md](specs/requirements.md) | 项目稳定业务与架构约束 | 是，优先级最高 |
-| `specs/README.md` | `specs/` 目录说明与归档索引 | 否，仅在追溯历史时读取 |
-| `specs/archive/<feature-name>/` | 已完成功能的决策与验证证据 | 否，仅在历史追溯时读取 |
-| [standards/](standards/README.md) | DDD、语言、前端、错误处理和 Git 规范 | 是，按当前任务增量读取 |
-| [AGENTS.md](AGENTS.md) | 任务入口、读取路由与三条硬性检查 | 是，作为规则入口 |
+| [AGENTS.md](AGENTS.md) | 任务入口与规则归属导航 | 是，作为规则入口 |
+| [docs/specs/baseline.md](docs/specs/baseline.md) | 项目长期有效的公共需求与架构约束 | 是，优先级最高 |
+| `docs/specs/<feature-name>/` | Feature 级改动的需求、设计与任务 | 是，该功能的直接依据 |
+| `docs/specs/archive/<feature-name>/` | 已完成功能的决策与验证证据 | 否，仅在历史追溯时读取 |
+| [docs/engineering/workflow.md](docs/engineering/workflow.md) | 开发生命周期与 Git 操作 | 是 |
+| [docs/engineering/specification.md](docs/engineering/specification.md) | Spec 编写与一致性规则 | 是 |
+| [docs/engineering/implementation.md](docs/engineering/implementation.md) | 代码修改规范 | 是，改代码前读取 |
 | `README.md` | 项目导航和技术基线 | 否 |
 
-功能需求来自当前任务本身，不再要求先建立功能 Spec；改动涉及业务边界、跨上下文契约或根约束时，先读 [specs/requirements.md](specs/requirements.md) 并按 [AGENTS.md](AGENTS.md) 加载命中的规范。不要为简单任务加载无关规范，也不要以 README 替代需求或标准。
+任务从 [AGENTS.md](AGENTS.md) 进入，按其执行顺序读取命中当前改动的文件，不为简单任务加载无关规范。是否需要建立 `docs/specs/<feature-name>/` 三件套由 [docs/engineering/specification.md](docs/engineering/specification.md) 判定；本 README 只作导航，不替代需求或规范。
 
 ## 构建校验
 
