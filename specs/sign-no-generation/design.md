@@ -4,7 +4,7 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 状态 | Draft（按 2026-10-23 重设计方案修订，待根需求修订评审后实现） |
+| 状态 | Implemented（2026-10-23 实现完成，已按实际实现回写偏差） |
 | 关联需求 | `specs/sign-no-generation/requirements.md` |
 | 所属限界上下文 | Claim Intake |
 | 模块 | `backend/claim-intake-service` |
@@ -169,6 +169,7 @@ sequenceDiagram
 
 - 发号在数据库事务之外；Redis 等待和 MySQL 高水位查询不占用创建事务。
 - 正常路径和降级路径都只生成候选编号，不预留；最终由创建事务中的 `uk_sign_no` 决定谁落库。
+- 创建事务对申请使用严格 `INSERT`，`sign_no` 冲突必须转换为 `DuplicateKeyException` 进入重试，不得静默更新既有行。
 - 降级路径不获取恢复锁，也不假定 `MAX` 查询具有并发串行能力。
 - 回放路径不调用 `SignNoAllocationService`，不消耗流水号。
 - `signNo` 由平台生成，不读取或拼接租户报文。
@@ -211,42 +212,51 @@ return sequence
 
 ```lua
 local raw = redis.call('GET', KEYS[1])
-local current = tonumber(raw)
-if current == nil or current < 0 or current % 1 ~= 0 then
-    current = 0
+local before = tonumber(raw)
+if before == nil or before < 0 or before % 1 ~= 0 then
+    before = 0
 end
 local target = tonumber(ARGV[1])
-if target > current then
-    current = target
+if target == nil or target < 0 then
+    return redis.error_reply('invalid high water mark')
 end
-redis.call('SET', KEYS[1], current)
+local after = before
+if target > after then
+    after = target
+end
+redis.call('SET', KEYS[1], after)
 redis.call('PEXPIRE', KEYS[1], ARGV[2])
-return current
+return {before, after}
 ```
 
 `reconcile-and-allocate.lua`：请求路径恢复并立即发号，校准与自增原子完成。
 
 ```lua
 local raw = redis.call('GET', KEYS[1])
-local current = tonumber(raw)
-if current == nil or current < 0 or current % 1 ~= 0 then
-    current = 0
+local before = tonumber(raw)
+if before == nil or before < 0 or before % 1 ~= 0 then
+    before = 0
 end
 local target = tonumber(ARGV[1])
-if target > current then
-    current = target
+if target == nil or target < 0 then
+    return redis.error_reply('invalid high water mark')
 end
-redis.call('SET', KEYS[1], current)
+local after = before
+if target > after then
+    after = target
+end
+redis.call('SET', KEYS[1], after)
 local sequence = redis.call('INCR', KEYS[1])
 redis.call('PEXPIRE', KEYS[1], ARGV[2])
-return sequence
+return {sequence, before, after}
 ```
 
 说明：
 
 - `allocate.lua` 返回 `-1` 表示 Key 缺失，返回 `-2` 表示值非法；合法流水号从 1 开始，不与错误码混淆。
 - 恢复脚本先读当前值，再取 `max(current, target)` 写入，避免恢复把计数器写回更小值。
-- `reconcile-only.lua` 和 `reconcile-and-allocate.lua` 都总是 `SET` 并刷新 TTL：前者避免后台校准后第一次发号再次走缺失恢复，后者确保缺失或非法值在 `INCR` 前已被修复，即使 MySQL 高水位为 0 也不会对非法字符串执行自增。
+- `reconcile-only.lua` 返回 `{before, after}`；`reconcile-and-allocate.lua` 返回 `{sequence, before, after}`，用于恢复日志记录校准前后值和序列差值，避免调用方额外读取 Redis。
+- `reconcile-only.lua` 和 `reconcile-and-allocate.lua` 都总是 `SET` 并刷新 TTL：前者避免后台校准后第一次发号再次走缺失恢复，后者确保缺失或非法值在 `INCR` 前已被修复，即使 MySQL 高水位为 0 也不会对非法字符串执行自增；高水位参数非法时脚本返回错误，不写 Key。
 - 恢复脚本读取的是执行瞬间的 Redis 值，不会使用调用方读到的过期值。
 - `PEXPIRE` 使用毫秒，配置 `Duration` 转换为毫秒。
 - 如果 Redis 命令失败、脚本执行失败或返回非预期类型，适配器转换为 `SignNoUnavailableException`，不在 Lua 中吞错。
@@ -312,8 +322,14 @@ public class SignNoAllocationService {
 }
 
 public class SignNoReconciliationService {
-    long reconcileAndAllocate(LocalDate businessDate);
-    SignNoReconciliationResult reconcile(LocalDate businessDate);
+    SignNoReconcileAllocationOutcome reconcileAndAllocate(LocalDate businessDate, SignNoRecoveryTrigger trigger);
+    SignNoReconciliationResult reconcile(LocalDate businessDate, SignNoRecoveryTrigger trigger);
+}
+
+public record SignNoReconcileAllocationOutcome(long sequence, long counterBefore, long counterAfter) {
+}
+
+public record SignNoReconcileOutcome(long counterBefore, long counterAfter) {
 }
 
 public class SignNoModeCoordinator {
@@ -327,8 +343,8 @@ public class SignNoModeCoordinator {
 | --- | --- | --- | --- |
 | `SignNoAllocationService.next()` | 按实例就绪状态选择 Redis 或 MySQL 降级 | `allocate.lua` / `reconcile-and-allocate.lua` | 是 |
 | `SignNoAllocationService.recoverAfterConflict(...)` | Redis 来源冲突后校准；降级来源不做 Redis 校准 | `reconcile-only.lua` | 否 |
-| `SignNoReconciliationService.reconcileAndAllocate(...)` | 请求路径缺失/非法 Key 恢复并立即发号 | `reconcile-and-allocate.lua` | 是 |
-| `SignNoReconciliationService.reconcile(...)` | 启动、周期、人工、恢复探测校准 | `reconcile-only.lua` | 否 |
+| `SignNoReconciliationService.reconcileAndAllocate(businessDate, trigger)` | 请求路径缺失/非法 Key 恢复并立即发号 | `reconcile-and-allocate.lua` | 是 |
+| `SignNoReconciliationService.reconcile(businessDate, trigger)` | 启动、周期、人工、恢复探测校准；锁未获取返回 `SKIPPED` | `reconcile-only.lua` | 否 |
 
 ### 请求路径恢复
 
@@ -458,6 +474,7 @@ throw new IllegalStateException("unreachable");
 约束：
 
 - `max-attempts` 默认 3，允许 1..5；不允许无限重试。
+- 创建使用严格 `INSERT`（`ClaimIntakeStore.insert` → `intakeMapper.insert`），不得 find-then-update、upsert 或依赖“租户内查不到就更新”；`sign_no` 重复必须由数据库唯一键抛出 `DuplicateKeyException`，否则并发降级会静默覆盖。
 - 每次重试都重新发号；不复用失败编号。
 - 恢复使用失败编号的日期，避免跨午夜时校准错日期。
 - 只捕获 `DuplicateKeyException`；其他 `DataIntegrityViolationException`（非唯一键）继续传播，按 500 处理。
@@ -593,6 +610,8 @@ public class SignNoModeCoordinator {
 - 启动后按 `reconciliation-initial-delay`（默认 0 秒）执行第一次，之后按 `reconciliation-interval`（默认 5 分钟）固定延迟执行。
 - `@PreDestroy` 停止执行器并短暂等待，不阻塞应用关闭。
 - `AtomicBoolean running` 防止周期任务重叠；重叠时记录 `skipped` 指标，不排队。
+- `requestAsync` 在轮次运行中立即返回已完成的 `SKIPPED` 结果，不阻塞调用线程。
+- 指标结果固定为 `success`/`skipped`/`failure`；`ReconciliationStatus.FAILED` 映射为 `failure`，其余按枚举小写。
 - 每次处理 `reconciliation-days` 个日期，默认当日和前一业务日期，范围 1..3 天。
 - 同一轮中单个日期失败不阻断其他日期；当日校准成功即可标记就绪。
 - 当日校准成功时调用 `markRedisReady()`；Redis 连接失败时调用 `markRedisUnavailable()`。
@@ -614,20 +633,20 @@ public record SignNoReconciliationResult(
 
 `dbHighWaterMark`、`counterBefore`、`counterAfter` 在未知时使用 `-1`；`sequence_gap` 只在 `counterBefore >= 0` 时记录，避免把失败样本写成 0。
 
-`SignNoReconciliationService.reconcileAndAllocate(LocalDate businessDate)`：
+`SignNoReconciliationService.reconcileAndAllocate(LocalDate businessDate, SignNoRecoveryTrigger trigger)`：
 
 1. 获取恢复锁；锁不可用或等待超时抛 `SignNoUnavailableException`。
-2. 查询 MySQL 主库高水位。
-3. 执行 `reconcile-and-allocate.lua`，返回下一个可用流水号。
+2. 查询 MySQL 主库高水位；已达到上限时抛 `SignNoSequenceExhaustedException`。
+3. 执行 `reconcile-and-allocate.lua`，返回 `SignNoReconcileAllocationOutcome(sequence, counterBefore, counterAfter)`。
 4. 校验流水号不超过上限。
-5. `finally` 释放锁。
+5. 记录 `date`、`trigger`、`dbMax`、`before`、`after`、`gap`、`sequence`；`finally` 释放锁。
 
-`SignNoReconciliationService.reconcile(LocalDate businessDate)`：
+`SignNoReconciliationService.reconcile(LocalDate businessDate, SignNoRecoveryTrigger trigger)`：
 
 1. 获取恢复锁；未获取返回 `SKIPPED`。
 2. 查询 MySQL 主库高水位。
-3. 读取 Redis 当前值并执行 `reconcile-only.lua`。
-4. 返回校准结果；`finally` 释放锁。
+3. 执行 `reconcile-only.lua`，返回校准前后计数器值。
+4. 返回 `SignNoReconciliationResult`；Redis/MySQL 失败转换为 `FAILED` 结果对象；`finally` 释放锁。
 5. 后台调度器根据结果更新就绪状态；冲突恢复路径根据结果决定下一轮是否降级。
 
 约束：
@@ -735,14 +754,18 @@ application
 │  ├─ SignNoHighWaterMark                  # MySQL 最大值端口
 │  ├─ SignNoFallbackAllocator              # MySQL 降级候选值端口
 │  ├─ SignNoRecoveryLock
-│  └─ SignNoRecoveryLockHandle
+│  ├─ SignNoRecoveryLockHandle
+│  └─ SignNoPolicy                         # fallback 开关与最大尝试次数
 ├─ result
 │  ├─ SignNoAllocation                     # signNo + source
+│  ├─ SignNoReconcileAllocationOutcome
+│  ├─ SignNoReconcileOutcome
 │  └─ SignNoReconciliationResult
 └─ service
    ├─ SignNoAllocationService              # next()、recoverAfterConflict()
-   ├─ SignNoFallbackAllocatorImpl          # MAX + 1，不落库
+   ├─ MysqlSignNoFallbackAllocator         # MAX + 1，不落库
    ├─ SignNoModeCoordinator                # 实例级 Redis 就绪信号
+   ├─ SignNoMetrics
    └─ SignNoReconciliationService          # reconcileAndAllocate() / reconcile()
 
 infrastructure
@@ -750,12 +773,14 @@ infrastructure
 │  ├─ RedisSignNoSequenceCounter           # Lua 脚本、Key、TTL
 │  └─ RedissonSignNoRecoveryLock           # 按日期恢复锁
 ├─ persistence
-│  └─ mapper/SignNoSequenceMapper          # MAX(sign_no) 查询
+│  ├─ mapper/SignNoSequenceMapper          # MAX(sign_no) 查询
+│  └─ repository/SignNoHighWaterMarkImpl
+├─ scheduling
+│  └─ SignNoReconciliationScheduler
 └─ config
-   ├─ SignNoProperties
+   ├─ SignNoProperties                     # 同时实现 SignNoPolicy
    ├─ SignNoClockConfiguration
-   ├─ SignNoSchemaValidator
-   └─ SignNoReconciliationScheduler
+   └─ SignNoSchemaValidator
 ```
 
 依赖方向：
@@ -830,6 +855,7 @@ claim:
 | `claim.intake.number.conflict` | Counter | `type=sign_no/external_apply_no` | 唯一冲突分类 |
 | `claim.intake.number.sequence_gap` | Gauge | 无标签，或仅 `scope=current/previous` | `dbMax - counterBefore`，正值表示 Redis 落后 MySQL |
 
+- 实际取值：`allocation.result=allocated/recovered/unavailable/exhausted`；`recovery.result=success/skipped/failure`；`fallback.result=success/conflict/exhausted/unavailable`；`conflict.type=sign_no/external_apply_no`。降级来源的签收号冲突由创建流程记录 `fallback{result=conflict}`。
 - 标签不得包含 `tenantCode`、`signNo`、`externalApplyNo`、日期或人员信息，避免高基数和敏感数据泄露。
 - 租户和编号通过日志、Trace 关联。
 - `sequence_gap` 由后台校准更新；正值持续存在或增大时告警，负值可能来自跳号，不直接告警。

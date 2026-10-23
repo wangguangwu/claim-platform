@@ -4,7 +4,7 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 状态 | Draft（按 2026-10-23 重设计方案修订，待根需求修订评审后实现） |
+| 状态 | Implemented（2026-10-23 根需求修订评审通过，实现与本地验证完成，待发布） |
 | 所属限界上下文 | Claim Intake |
 | 模块 | `backend/claim-intake-service` |
 | 功能分支 | 实现前创建 `feat/sign-no-generation`；本 Spec 在 `docs/sign-no-generation` |
