@@ -14,9 +14,11 @@
 
 ## 项目背景与目标
 
-签收提交的 `findByExternalApplyNo` 当前直接按 `tenantCode + externalApplyNo` 查询 MySQL。重复提交集中时会持续访问该业务唯一键。本功能增加 Redis 优先、MySQL 回源的缓存链路，同时保持 MySQL 为唯一事实来源和最终幂等屏障。
+签收提交的 `findByExternalApplyNo` 当前直接按 `tenantCode + externalApplyNo` 查询 MySQL。重复提交集中时会持续访问该业务唯一键。本功能采用 Cache-Aside 模式增加 Redis 优先、MySQL 回源的缓存链路，同时保持 MySQL 为唯一事实来源和最终幂等屏障。
 
-缓存只保存外部申请编号到平台签收号的映射。缓存命中后仍按 `tenantCode + signNo` 查询 MySQL，以确保回放的是申请的当前状态，不会因材料上传等状态迁移而返回过期状态。
+Redis 仅缓存 `tenantCode + externalApplyNo -> signNo` 的定位关系。读取时优先从 Redis 获取 `signNo`，再按 `tenantCode + signNo` 查询 MySQL，以确保回放的是申请的当前状态，不会因材料上传等状态迁移而返回过期状态。缓存未命中、失效或异常时回源 MySQL，并在命中后按最佳努力回填缓存。
+
+创建申请以 MySQL 事务结果为准。只有创建事务提交成功后才写入 Redis；Redis 不参与业务事务和最终幂等判断。
 
 ## 范围
 
@@ -34,12 +36,13 @@
 
 ## 核心约束
 
-1. MySQL 是申请及其当前状态的唯一事实来源；`tenantCode + externalApplyNo` 唯一键仍是最终幂等屏障。
-2. Redis 只保存 `tenantCode + externalApplyNo -> signNo` 映射；键和值均不得携带人员信息、材料内容或原始报文。
-3. 缓存键必须包含租户且使用 SHA-256 摘要，不得暴露原始 `externalApplyNo`。
-4. Redis 不可用、缓存值损坏或缓存映射失效时，必须回源 MySQL；缓存异常不得转换为业务失败。
-5. 缓存命中后必须按 `tenantCode + signNo` 读取 MySQL 聚合并返回当前状态；不得直接用缓存拼装 `ClaimIntakeResult`。
-6. 仅在创建事务成功提交后回填签收成功映射；创建事务回滚或失败时不得写缓存。
+1. 本功能采用 Cache-Aside 模式：读取优先缓存，缓存未命中、失效或异常时回源 MySQL，MySQL 命中后最佳努力回填缓存。
+2. MySQL 是申请及其当前状态的唯一事实来源；`tenantCode + externalApplyNo` 唯一键仍是最终幂等屏障。
+3. Redis 只保存 `tenantCode + externalApplyNo -> signNo` 映射；键和值均不得携带人员信息、材料内容或原始报文。
+4. 缓存键必须包含租户且使用 SHA-256 摘要，不得暴露原始 `externalApplyNo`。
+5. Redis 不可用、缓存值损坏或缓存映射失效时，必须回源 MySQL；缓存异常不得转换为业务失败。
+6. 缓存命中后必须按 `tenantCode + signNo` 读取 MySQL 聚合并返回当前状态；不得直接用缓存拼装 `ClaimIntakeResult`。
+7. 仅在创建事务成功提交后回填签收成功映射；创建事务回滚或失败时不得写缓存；Redis 不得参与业务事务和最终幂等判断。
 
 ## 验收需求
 

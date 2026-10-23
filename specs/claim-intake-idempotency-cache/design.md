@@ -1,5 +1,7 @@
 # 理赔申请幂等查询缓存设计
 
+本功能采用 Cache-Aside 模式：缓存只承担幂等键到签收号的定位，MySQL 始终承担当前状态读取、创建事务和最终幂等判断。
+
 ## 总体架构
 
 ```mermaid
@@ -61,7 +63,7 @@ public interface IntakeSubmissionReplayCache {
 
 端口实现位于 `infrastructure/cache`。应用层不依赖 `StringRedisTemplate`、Redis 异常类型或键构造细节。
 
-### DS-CIIC-002 查询与失效处理
+### DS-CIIC-002 Cache-Aside 查询与失效处理
 
 `ClaimIntakeCommandService.findByExternalApplyNo` 按以下顺序执行：
 
@@ -71,11 +73,11 @@ public interface IntakeSubmissionReplayCache {
 4. 缓存未命中或不可用时，直接按原业务键回源 MySQL。
 5. 回源命中时最佳努力回填映射；回源未命中时继续既有锁、二次查询和唯一键兜底。
 
-缓存端口将 Redis 基础设施异常转换为空结果或无副作用写入；应用层不把缓存异常映射为业务异常。
+缓存端口将 Redis 基础设施异常转换为空结果或无副作用写入；应用层不把缓存异常映射为业务异常。该链路不对 Redis 加分布式事务、补偿事务或写入确认依赖，缓存回填失败只会造成后续请求再次回源 MySQL。
 
 ### DS-CIIC-003 事务边界
 
-创建仍由 `ClaimIntakeCreationService` 的独立事务完成。只有其 `create` 方法正常返回（意味着事务已提交）后，`ClaimIntakeCommandService` 才调用缓存回填。缓存写入不在数据库事务内，失败不回滚数据库事务。
+创建仍由 `ClaimIntakeCreationService` 的独立事务完成。只有其 `create` 方法正常返回（意味着事务已提交）后，`ClaimIntakeCommandService` 才调用缓存回填。缓存写入不在数据库事务内，Redis 不参与事务提交、回滚、业务锁正确性或最终幂等判断；缓存写入失败不回滚数据库事务。
 
 材料上传等状态变更无需写缓存，因为缓存不保存状态；缓存命中后的 MySQL 查询始终读取当前状态。
 
