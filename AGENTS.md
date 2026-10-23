@@ -32,8 +32,14 @@ specs/requirements.md
 | 领域模型、应用服务、Repository、事件或跨上下文协作 | `standards/ddd.md`、`standards/java.md` | 分层、所有权和兼容性明确 |
 | Vue、TypeScript、Store、Composable 或前端 API | `standards/frontend.md` | 前端边界与校验明确 |
 | HTTP 响应、错误码、全局异常或异常日志 | `standards/error-handling.md`；Java 服务同时读 `standards/java.md` | 错误契约和安全日志明确 |
-| 分支、工作区、推送或审核 | `standards/git-workflow.md` | 不会覆盖或混入已有改动 |
-| Git Commit | `standards/commit.md` | 当前提交只对应一个完成的 Task |
+| 判断 Git 操作应读取哪份规范 | `standards/git/README.md` | 已定位到当前操作对应的单一规范 |
+| 检查工作区或切换工作上下文 | `standards/git/workspace.md` | 不会覆盖或混入已有改动 |
+| 创建、选择或同步功能分支 | `standards/git/branch.md` | 分支来源和名称符合约定 |
+| 拉取主线更新或处理 rebase 冲突 | `standards/git/sync.md` | 与目标分支的同步方式明确 |
+| Git Commit | `standards/git/commit.md` | 当前提交只对应一个完成的 Task |
+| 推送功能分支 | `standards/git/push.md` | 仅推送目标功能分支，且不覆盖共享历史 |
+| 请求或处理代码审核 | `standards/git/review.md` | 审核信息与人工确认边界明确 |
+| 合并分支 | `standards/git/merge.md` | 已获得人工审核和合并确认 |
 | 修改本文件、根需求或专项规范 | `standards/README.md` 和被修改目标 | 入口、目录和专项规则一致 |
 
 ## 实施门禁
@@ -43,7 +49,7 @@ specs/requirements.md
 - 已选定当前活动 Spec；纯重构必须确认不改变业务行为。
 - 当前 Task 及其关联需求、设计和依赖已明确。
 - 当前修改命中的专项规范已经读取。
-- 已按 `git-workflow.md` 确认分支和工作区，不覆盖用户已有改动。
+- 已按 `standards/git/workspace.md` 确认工作区，不覆盖用户已有改动；涉及分支操作时已读取对应 Git 专项规范。
 - 新功能或影响业务行为的变更已完成 Spec Review；未建立活动 Spec 时不得开始生产代码。
 
 活动 Spec 为 `Draft`、`Blocked` 或缺少必要前置决策时，不得以实现代码绕过门禁。
