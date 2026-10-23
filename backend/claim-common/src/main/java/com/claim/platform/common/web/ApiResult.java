@@ -9,6 +9,9 @@ package com.claim.platform.common.web;
  */
 public record ApiResult<T>(boolean success, String code, String message, String traceId, T data) {
 
+    public static final String SUCCESS_CODE = "OK";
+    public static final String SUCCESS_MESSAGE = "操作成功";
+
     /**
      * 创建成功响应。
      *
@@ -18,7 +21,7 @@ public record ApiResult<T>(boolean success, String code, String message, String 
      * @return 成功响应信封
      */
     public static <T> ApiResult<T> success(T data, String traceId) {
-        return new ApiResult<>(true, "OK", "操作成功", traceId, data);
+        return new ApiResult<>(true, SUCCESS_CODE, SUCCESS_MESSAGE, traceId, data);
     }
 
     /**

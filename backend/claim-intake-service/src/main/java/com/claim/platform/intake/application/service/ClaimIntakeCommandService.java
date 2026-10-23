@@ -15,6 +15,7 @@ import com.claim.platform.intake.application.result.SignNoAllocation;
 import com.claim.platform.intake.application.result.SignNoSource;
 import com.claim.platform.intake.domain.exception.ClaimIntakeNotFoundException;
 import com.claim.platform.intake.domain.model.ClaimIntake;
+import com.claim.platform.intake.domain.model.InteractionType;
 import com.claim.platform.intake.domain.model.SignNoFormat;
 import com.claim.platform.intake.domain.repository.ClaimIntakeStore;
 import com.claim.platform.intake.domain.repository.IntakeMaterialStore;
@@ -41,24 +42,8 @@ import java.util.concurrent.ThreadLocalRandom;
 @RequiredArgsConstructor
 public class ClaimIntakeCommandService {
 
-    private static final String SUBMISSION_METRIC = "claim.intake.submission";
-
-    private static final String RESULT_CREATED = "created";
-    private static final String RESULT_REPLAYED_QUICK = "replayed_quick";
-    private static final String RESULT_REPLAYED_LOCKED = "replayed_locked";
-    private static final String RESULT_REPLAYED_CONFLICT = "replayed_conflict";
-    private static final String RESULT_LOCK_TIMEOUT = "lock_timeout";
-    private static final String RESULT_LOCK_DEGRADED = "lock_degraded";
-    private static final String RESULT_ERROR = "error";
-
-    private static final String CONFLICT_EXTERNAL_APPLY_NO = "external_apply_no";
-    private static final String CONFLICT_SIGN_NO = "sign_no";
-
-    private static final String LAYER_QUICK_QUERY = "quick-query";
-    private static final String LAYER_LOCKED_DOUBLE_CHECK = "locked-double-check";
-    private static final String LAYER_UNIQUE_CONFLICT = "unique-conflict";
-
-    private static final String INTERACTION_IMAGE_UPLOAD = "IMAGE_UPLOAD";
+    private static final long BACKOFF_MIN_MILLIS = 10;
+    private static final long BACKOFF_MAX_MILLIS_EXCLUSIVE = 31;
 
     private final ClaimIntakeStore intakeStore;
     private final IntakeMaterialStore materialStore;
@@ -84,9 +69,9 @@ public class ClaimIntakeCommandService {
         } catch (IntakeSubmissionInProgressException exception) {
             throw exception;
         } catch (RuntimeException exception) {
-            recordSubmission(RESULT_ERROR);
+            recordSubmission(IntakeMetricConstants.RESULT_ERROR);
             log.error("claim intake submission failed tenantCode={} traceId={} result={}",
-                    command.tenantCode(), command.traceId(), RESULT_ERROR, exception);
+                    command.tenantCode(), command.traceId(), IntakeMetricConstants.RESULT_ERROR, exception);
             throw exception;
         }
     }
@@ -104,33 +89,37 @@ public class ClaimIntakeCommandService {
         intake.registerMaterials();
         materialStore.saveAll(command.tenantCode(), command.signNo(), command.materials());
         intakeStore.save(intake);
-        interactionLogStore.recordSuccess(command.tenantCode(), command.signNo(), INTERACTION_IMAGE_UPLOAD, null,
-                command.traceId());
+        interactionLogStore.recordSuccess(command.tenantCode(), command.signNo(),
+                InteractionType.IMAGE_UPLOAD.code(), null, command.traceId());
         return new ClaimIntakeResult(command.signNo(), intake.status());
     }
 
     private ClaimIntakeResult submitWithIdempotencyGuard(SubmitIntakeCommand command) {
         Optional<ClaimIntake> existing = findByExternalApplyNo(command);
         if (existing.isPresent()) {
-            return replay(existing.get(), command, LAYER_QUICK_QUERY, RESULT_REPLAYED_QUICK);
+            return replay(existing.get(), command,
+                    IntakeMetricConstants.LAYER_QUICK_QUERY, IntakeMetricConstants.RESULT_REPLAYED_QUICK);
         }
 
         try (IntakeSubmissionLockHandle handle = submissionLock.tryAcquire(
                 command.tenantCode(), command.externalApplyNo())) {
             if (handle.status() == LockAcquireStatus.TIMEOUT) {
-                recordSubmission(RESULT_LOCK_TIMEOUT);
+                recordSubmission(IntakeMetricConstants.RESULT_LOCK_TIMEOUT);
                 log.warn("claim intake submission lock timeout tenantCode={} traceId={} result={}",
-                        command.tenantCode(), command.traceId(), RESULT_LOCK_TIMEOUT);
+                        command.tenantCode(), command.traceId(), IntakeMetricConstants.RESULT_LOCK_TIMEOUT);
                 throw new IntakeSubmissionInProgressException();
             }
             if (handle.status() == LockAcquireStatus.UNAVAILABLE) {
-                recordSubmission(RESULT_LOCK_DEGRADED);
+                recordSubmission(IntakeMetricConstants.RESULT_LOCK_DEGRADED);
                 log.warn("claim intake submission lock degraded tenantCode={} traceId={} result={}",
-                        command.tenantCode(), command.traceId(), RESULT_LOCK_DEGRADED);
+                        command.tenantCode(), command.traceId(), IntakeMetricConstants.RESULT_LOCK_DEGRADED);
             }
 
             existing = findByExternalApplyNo(command);
-            return existing.map(claimIntake -> replay(claimIntake, command, LAYER_LOCKED_DOUBLE_CHECK, RESULT_REPLAYED_LOCKED)).orElseGet(() -> createWithSignNoRetry(command));
+            return existing.map(claimIntake -> replay(claimIntake, command,
+                            IntakeMetricConstants.LAYER_LOCKED_DOUBLE_CHECK,
+                            IntakeMetricConstants.RESULT_REPLAYED_LOCKED))
+                    .orElseGet(() -> createWithSignNoRetry(command));
         }
     }
 
@@ -143,12 +132,14 @@ public class ClaimIntakeCommandService {
             } catch (DuplicateKeyException exception) {
                 Optional<ClaimIntake> concurrent = findByExternalApplyNo(command);
                 if (concurrent.isPresent()) {
-                    signNoMetrics.recordConflict(CONFLICT_EXTERNAL_APPLY_NO);
-                    return replay(concurrent.get(), command, LAYER_UNIQUE_CONFLICT, RESULT_REPLAYED_CONFLICT);
+                    signNoMetrics.recordConflict(IntakeMetricConstants.CONFLICT_EXTERNAL_APPLY_NO);
+                    return replay(concurrent.get(), command,
+                            IntakeMetricConstants.LAYER_UNIQUE_CONFLICT,
+                            IntakeMetricConstants.RESULT_REPLAYED_CONFLICT);
                 }
-                signNoMetrics.recordConflict(CONFLICT_SIGN_NO);
+                signNoMetrics.recordConflict(IntakeMetricConstants.CONFLICT_SIGN_NO);
                 if (allocation.source() == SignNoSource.MYSQL_FALLBACK) {
-                    signNoMetrics.recordFallback("conflict");
+                    signNoMetrics.recordFallback(IntakeMetricConstants.RESULT_CONFLICT);
                 }
                 log.warn("claim intake signNo collision tenantCode={} signNo={} traceId={} attempt={} source={}",
                         command.tenantCode(), allocation.signNo(), command.traceId(), attempt, allocation.source());
@@ -162,20 +153,21 @@ public class ClaimIntakeCommandService {
                 backoff();
             }
         }
-        throw new IllegalStateException("unreachable");
+        throw new IllegalStateException("sign no retry loop exhausted without terminal branch");
     }
 
     private ClaimIntakeResult create(SubmitIntakeCommand command, SignNoAllocation allocation) {
         ClaimIntakeResult result = creationService.create(command, allocation.signNo());
         replayCache.put(command.tenantCode(), command.externalApplyNo(), result.signNo());
-        recordSubmission(RESULT_CREATED);
+        recordSubmission(IntakeMetricConstants.RESULT_CREATED);
         log.info("claim intake created tenantCode={} signNo={} source={} traceId={} result={}",
-                command.tenantCode(), allocation.signNo(), allocation.source(), command.traceId(), RESULT_CREATED);
+                command.tenantCode(), allocation.signNo(), allocation.source(), command.traceId(),
+                IntakeMetricConstants.RESULT_CREATED);
         return result;
     }
 
     private void backoff() {
-        long delayMillis = ThreadLocalRandom.current().nextLong(10, 31);
+        long delayMillis = ThreadLocalRandom.current().nextLong(BACKOFF_MIN_MILLIS, BACKOFF_MAX_MILLIS_EXCLUSIVE);
         try {
             Thread.sleep(delayMillis);
         } catch (InterruptedException exception) {
@@ -210,6 +202,7 @@ public class ClaimIntakeCommandService {
     }
 
     private void recordSubmission(String result) {
-        meterRegistry.counter(SUBMISSION_METRIC, "result", result).increment();
+        meterRegistry.counter(IntakeMetricConstants.SUBMISSION_METRIC,
+                IntakeMetricConstants.TAG_RESULT, result).increment();
     }
 }

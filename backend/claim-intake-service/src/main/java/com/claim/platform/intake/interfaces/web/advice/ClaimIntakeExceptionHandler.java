@@ -12,6 +12,7 @@ import com.claim.platform.intake.interfaces.tenant.core.exception.IntakeConversi
 import com.claim.platform.intake.interfaces.tenant.core.exception.IntakePayloadParseException;
 import com.claim.platform.intake.interfaces.tenant.core.exception.IntakeRequestValidationException;
 import com.claim.platform.intake.interfaces.tenant.core.exception.TenantProtocolNotSupportedException;
+import com.claim.platform.intake.interfaces.web.ClaimIntakeWebContract;
 import com.claim.platform.intake.interfaces.web.context.GatewayRequestContextResolver;
 import com.claim.platform.intake.interfaces.web.exception.TenantContextMissingException;
 import com.claim.platform.intake.interfaces.web.exception.UntrustedCallerException;
@@ -22,7 +23,6 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -49,9 +49,9 @@ public class ClaimIntakeExceptionHandler {
         String traceId = traceId(request);
         String field = exception instanceof MethodArgumentNotValidException validation
                 && !validation.getAllErrors().isEmpty()
-                ? validation.getAllErrors().get(0).getObjectName() : "request";
+                ? validation.getAllErrors().get(0).getObjectName() : ClaimIntakeWebContract.DEFAULT_FIELD;
         LOGGER.warn("claim intake request validation failed field={} traceId={}", field, traceId);
-        return failure(HttpStatus.BAD_REQUEST, "REQUEST_VALIDATION_FAILED", "请求参数不合法", traceId);
+        return failure(IntakeErrorCode.REQUEST_VALIDATION_FAILED, traceId);
     }
 
     /**
@@ -59,7 +59,7 @@ public class ClaimIntakeExceptionHandler {
      */
     @ExceptionHandler(UntrustedCallerException.class)
     public ResponseEntity<ApiResult<Void>> untrusted(UntrustedCallerException exception, HttpServletRequest request) {
-        return failure(HttpStatus.UNAUTHORIZED, "UNTRUSTED_CALLER", "调用方未通过内部鉴别", traceId(request));
+        return failure(IntakeErrorCode.UNTRUSTED_CALLER, traceId(request));
     }
 
     /**
@@ -67,7 +67,7 @@ public class ClaimIntakeExceptionHandler {
      */
     @ExceptionHandler(TenantContextMissingException.class)
     public ResponseEntity<ApiResult<Void>> missingTenant(TenantContextMissingException exception, HttpServletRequest request) {
-        return failure(HttpStatus.BAD_REQUEST, "TENANT_CONTEXT_MISSING", "缺少租户上下文", traceId(request));
+        return failure(IntakeErrorCode.TENANT_CONTEXT_MISSING, traceId(request));
     }
 
     /**
@@ -78,7 +78,7 @@ public class ClaimIntakeExceptionHandler {
                                                             HttpServletRequest request) {
         String traceId = traceId(request);
         LOGGER.warn("tenant intake parse failed fieldPath={} traceId={}", exception.fieldPath(), traceId);
-        return failure(HttpStatus.BAD_REQUEST, "MALFORMED_REQUEST", "请求报文格式不合法", traceId);
+        return failure(IntakeErrorCode.MALFORMED_REQUEST, traceId);
     }
 
     /**
@@ -90,7 +90,7 @@ public class ClaimIntakeExceptionHandler {
         String traceId = traceId(request);
         LOGGER.warn("tenant intake {} failed fieldPath={} traceId={}",
                 exception.getClass().getSimpleName(), exception.fieldPath(), traceId);
-        return failure(HttpStatus.BAD_REQUEST, "REQUEST_VALIDATION_FAILED", "请求参数不合法", traceId);
+        return failure(IntakeErrorCode.REQUEST_VALIDATION_FAILED, traceId);
     }
 
     /**
@@ -102,7 +102,7 @@ public class ClaimIntakeExceptionHandler {
         String traceId = traceId(request);
         LOGGER.warn("tenant protocol not supported tenantCode={} protocolVersion={} traceId={}",
                 exception.tenantCode(), exception.protocolVersion(), traceId);
-        return failure(HttpStatus.BAD_REQUEST, "TENANT_PROTOCOL_NOT_SUPPORTED", "租户协议不支持", traceId);
+        return failure(IntakeErrorCode.TENANT_PROTOCOL_NOT_SUPPORTED, traceId);
     }
 
     /**
@@ -110,7 +110,7 @@ public class ClaimIntakeExceptionHandler {
      */
     @ExceptionHandler(ClaimIntakeNotFoundException.class)
     public ResponseEntity<ApiResult<Void>> notFound(ClaimIntakeNotFoundException exception, HttpServletRequest request) {
-        return failure(HttpStatus.NOT_FOUND, "CLAIM_INTAKE_NOT_FOUND", "签收申请不存在", traceId(request));
+        return failure(IntakeErrorCode.CLAIM_INTAKE_NOT_FOUND, traceId(request));
     }
 
     /**
@@ -119,7 +119,7 @@ public class ClaimIntakeExceptionHandler {
     @ExceptionHandler(InvalidIntakeStatusException.class)
     public ResponseEntity<ApiResult<Void>> invalidStatus(InvalidIntakeStatusException exception,
                                                          HttpServletRequest request) {
-        return failure(HttpStatus.CONFLICT, "INVALID_INTAKE_STATUS", "当前申请状态不允许该操作", traceId(request));
+        return failure(IntakeErrorCode.INVALID_INTAKE_STATUS, traceId(request));
     }
 
     /**
@@ -130,7 +130,7 @@ public class ClaimIntakeExceptionHandler {
                                                                 HttpServletRequest request) {
         String traceId = traceId(request);
         LOGGER.warn("claim intake submission in progress traceId={} result=lock_timeout", traceId);
-        return failure(HttpStatus.CONFLICT, "INTAKE_SUBMISSION_IN_PROGRESS", "申请正在处理中，请稍后重试", traceId);
+        return failure(IntakeErrorCode.INTAKE_SUBMISSION_IN_PROGRESS, traceId);
     }
 
     /**
@@ -139,7 +139,7 @@ public class ClaimIntakeExceptionHandler {
     @ExceptionHandler(ConcurrentIntakeModificationException.class)
     public ResponseEntity<ApiResult<Void>> concurrentModification(ConcurrentIntakeModificationException exception,
                                                                   HttpServletRequest request) {
-        return failure(HttpStatus.CONFLICT, "CLAIM_INTAKE_CONCURRENT_MODIFICATION", "签收申请已被并发修改", traceId(request));
+        return failure(IntakeErrorCode.CLAIM_INTAKE_CONCURRENT_MODIFICATION, traceId(request));
     }
 
     /**
@@ -150,9 +150,7 @@ public class ClaimIntakeExceptionHandler {
                                                              HttpServletRequest request) {
         String traceId = traceId(request);
         LOGGER.warn("claim intake sign no unavailable reason={} traceId={}", exception.reason(), traceId);
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                .header(HttpHeaders.RETRY_AFTER, "5")
-                .body(ApiResult.failure("INTAKE_NUMBER_UNAVAILABLE", "签收号服务暂不可用，请稍后重试", traceId));
+        return failure(IntakeErrorCode.INTAKE_NUMBER_UNAVAILABLE, traceId);
     }
 
     /**
@@ -163,7 +161,7 @@ public class ClaimIntakeExceptionHandler {
                                                            HttpServletRequest request) {
         String traceId = traceId(request);
         LOGGER.error("claim intake sign no exhausted traceId={}", traceId);
-        return failure(HttpStatus.SERVICE_UNAVAILABLE, "INTAKE_NUMBER_EXHAUSTED", "今日签收号已用尽，请联系平台", traceId);
+        return failure(IntakeErrorCode.INTAKE_NUMBER_EXHAUSTED, traceId);
     }
 
     /**
@@ -174,11 +172,15 @@ public class ClaimIntakeExceptionHandler {
         String traceId = traceId(request);
         LOGGER.error("unexpected claim intake error type={} traceId={}",
                 exception.getClass().getSimpleName(), traceId, exception);
-        return failure(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "系统繁忙，请稍后重试", traceId);
+        return failure(IntakeErrorCode.INTERNAL_ERROR, traceId);
     }
 
-    private ResponseEntity<ApiResult<Void>> failure(HttpStatus status, String code, String message, String traceId) {
-        return ResponseEntity.status(status).body(ApiResult.failure(code, message, traceId));
+    private ResponseEntity<ApiResult<Void>> failure(IntakeErrorCode errorCode, String traceId) {
+        ResponseEntity.BodyBuilder builder = ResponseEntity.status(errorCode.status());
+        if (errorCode.retryAfterSeconds() != null) {
+            builder.header(HttpHeaders.RETRY_AFTER, String.valueOf(errorCode.retryAfterSeconds()));
+        }
+        return builder.body(ApiResult.failure(errorCode.code(), errorCode.message(), traceId));
     }
 
     private String traceId(HttpServletRequest request) {

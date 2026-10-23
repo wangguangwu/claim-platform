@@ -2,6 +2,7 @@ package com.claim.platform.intake.interfaces.tenant.reference.validator;
 
 import com.claim.platform.intake.interfaces.tenant.core.exception.IntakeRequestValidationException;
 import com.claim.platform.intake.interfaces.tenant.core.validator.RequestValidator;
+import com.claim.platform.intake.interfaces.tenant.reference.ReferenceProtocolConstants;
 import com.claim.platform.intake.interfaces.tenant.reference.dto.ReferenceIntakePayload;
 
 /**
@@ -22,7 +23,8 @@ public class ReferenceRequestValidator implements RequestValidator<ReferenceInta
         defaultValidator.validate(request);
         String relationship = request.applicant().relationshipToInsured();
         if (relationship == null || relationship.isBlank()) {
-            throw new IntakeRequestValidationException("applicant.relationshipToInsured");
+            throw new IntakeRequestValidationException(
+                    ReferenceProtocolConstants.RELATIONSHIP_TO_INSURED_FIELD);
         }
     }
 }

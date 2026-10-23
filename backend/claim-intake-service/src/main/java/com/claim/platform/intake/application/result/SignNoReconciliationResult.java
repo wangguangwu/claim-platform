@@ -26,6 +26,8 @@ public record SignNoReconciliationResult(
         ReconciliationStatus status,
         SignNoUnavailableReason failureReason) {
 
+    public static final long UNKNOWN_VALUE = -1L;
+
     public static SignNoReconciliationResult success(LocalDate businessDate, long dbHighWaterMark,
                                                      long counterBefore, long counterAfter) {
         return new SignNoReconciliationResult(businessDate, dbHighWaterMark, counterBefore, counterAfter,
@@ -33,7 +35,7 @@ public record SignNoReconciliationResult(
     }
 
     public static SignNoReconciliationResult skipped(LocalDate businessDate, SignNoUnavailableReason reason) {
-        return new SignNoReconciliationResult(businessDate, -1, -1, -1, false,
+        return new SignNoReconciliationResult(businessDate, UNKNOWN_VALUE, UNKNOWN_VALUE, UNKNOWN_VALUE, false,
                 ReconciliationStatus.SKIPPED, reason);
     }
 
@@ -41,12 +43,12 @@ public record SignNoReconciliationResult(
      * 因已有校准轮次运行而跳过，不涉及具体不可用原因。
      */
     public static SignNoReconciliationResult skipped(LocalDate businessDate) {
-        return new SignNoReconciliationResult(businessDate, -1, -1, -1, false,
+        return new SignNoReconciliationResult(businessDate, UNKNOWN_VALUE, UNKNOWN_VALUE, UNKNOWN_VALUE, false,
                 ReconciliationStatus.SKIPPED, null);
     }
 
     public static SignNoReconciliationResult failed(LocalDate businessDate, SignNoUnavailableReason reason) {
-        return new SignNoReconciliationResult(businessDate, -1, -1, -1, false,
+        return new SignNoReconciliationResult(businessDate, UNKNOWN_VALUE, UNKNOWN_VALUE, UNKNOWN_VALUE, false,
                 ReconciliationStatus.FAILED, reason);
     }
 
@@ -55,7 +57,7 @@ public record SignNoReconciliationResult(
      */
     public long sequenceGap() {
         if (dbHighWaterMark < 0 || counterBefore < 0) {
-            return -1;
+            return UNKNOWN_VALUE;
         }
         return dbHighWaterMark - counterBefore;
     }

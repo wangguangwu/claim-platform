@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.annotation.Version;
 import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
 import com.claim.platform.intake.domain.model.IntakeStatus;
+import com.claim.platform.intake.infrastructure.persistence.ClaimIntakeTable;
 import com.claim.platform.intake.infrastructure.persistence.dataobject.person.AccidentPersonInfoDO;
 import com.claim.platform.intake.infrastructure.persistence.dataobject.person.ApplicantInfoDO;
 import com.claim.platform.intake.infrastructure.persistence.dataobject.person.MainInsuredInfoDO;
@@ -15,38 +16,38 @@ import lombok.Data;
 
 /**
  * Claim Intake 所拥有的签收申请 MyBatis-Plus 数据对象，不向领域层泄露。
- * 四类人员信息以结构化 {@code PersonInfoDO} 承载，经 Jackson 类型处理器映射 JSON 列；
- * 列名由 MyBatis-Plus 下划线映射从字段名自动推导。
+ * 四类人员信息以结构化 {@code PersonInfoDO} 承载，经 Jackson 类型处理器映射 JSON 列。
  *
  * @author wangguangwu
  */
 @Data
-@TableName(value = "t_claim_intake", autoResultMap = true)
+@TableName(value = ClaimIntakeTable.NAME, autoResultMap = true)
 public class ClaimIntakeDO {
-    @TableId(type = IdType.AUTO)
+    @TableId(value = ClaimIntakeTable.ID, type = IdType.AUTO)
     private Long id;
-    @TableField("tenant_code")
+    @TableField(ClaimIntakeTable.TENANT_CODE)
     private String tenantCode;
-    @TableField("sign_no")
+    @TableField(ClaimIntakeTable.SIGN_NO)
     private String signNo;
-    @TableField("external_apply_no")
+    @TableField(ClaimIntakeTable.EXTERNAL_APPLY_NO)
     private String externalApplyNo;
-    @TableField("applicant_name")
+    @TableField(ClaimIntakeTable.APPLICANT_NAME)
     private String applicantName;
-    @TableField(value = "applicant_info", typeHandler = JacksonTypeHandler.class)
+    @TableField(value = ClaimIntakeTable.APPLICANT_INFO, typeHandler = JacksonTypeHandler.class)
     private ApplicantInfoDO applicantInfo;
-    @TableField(value = "accident_person_info", typeHandler = JacksonTypeHandler.class)
+    @TableField(value = ClaimIntakeTable.ACCIDENT_PERSON_INFO, typeHandler = JacksonTypeHandler.class)
     private AccidentPersonInfoDO accidentPersonInfo;
-    @TableField(value = "main_insured_info", typeHandler = JacksonTypeHandler.class)
+    @TableField(value = ClaimIntakeTable.MAIN_INSURED_INFO, typeHandler = JacksonTypeHandler.class)
     private MainInsuredInfoDO mainInsuredInfo;
-    @TableField(value = "payee_info", typeHandler = JacksonTypeHandler.class)
+    @TableField(value = ClaimIntakeTable.PAYEE_INFO, typeHandler = JacksonTypeHandler.class)
     private PayeeInfoDO payeeInfo;
-    @TableField("ext_json")
+    @TableField(ClaimIntakeTable.EXT_JSON)
     private String extJson;
-    @TableField("intake_status")
+    @TableField(ClaimIntakeTable.INTAKE_STATUS)
     private IntakeStatus status;
     @Version
+    @TableField(ClaimIntakeTable.VERSION)
     private Integer version;
-    @TableField("is_deleted")
+    @TableField(ClaimIntakeTable.IS_DELETED)
     private boolean deleted;
 }

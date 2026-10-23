@@ -8,7 +8,6 @@ import com.claim.platform.intake.application.port.SignNoHighWaterMark;
 import com.claim.platform.intake.application.port.SignNoRecoveryLock;
 import com.claim.platform.intake.application.port.SignNoRecoveryLockHandle;
 import com.claim.platform.intake.application.port.SignNoSequenceCounter;
-import com.claim.platform.intake.application.result.ReconciliationStatus;
 import com.claim.platform.intake.application.result.SignNoReconcileAllocationOutcome;
 import com.claim.platform.intake.application.result.SignNoReconcileOutcome;
 import com.claim.platform.intake.application.result.SignNoReconciliationResult;
@@ -95,8 +94,7 @@ public class SignNoReconciliationService {
         } catch (SignNoUnavailableException exception) {
             log.error("claim intake sign no reconciliation failed date={} trigger={} reason={}", businessDate,
                     trigger.code(), exception.reason(), exception);
-            return new SignNoReconciliationResult(businessDate, -1, -1, -1, false,
-                    ReconciliationStatus.FAILED, exception.reason());
+            return SignNoReconciliationResult.failed(businessDate, exception.reason());
         }
     }
 

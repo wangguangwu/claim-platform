@@ -7,6 +7,7 @@ import com.claim.platform.intake.application.service.ClaimIntakeCommandService;
 import com.claim.platform.intake.interfaces.tenant.core.context.TenantContext;
 import com.claim.platform.intake.interfaces.tenant.core.context.TenantContextHolder;
 import com.claim.platform.intake.interfaces.tenant.core.pipeline.IntakeConvertPipeline;
+import com.claim.platform.intake.interfaces.web.ClaimIntakeWebContract;
 import com.claim.platform.intake.interfaces.web.context.TenantIntakeContextResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
@@ -22,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
  * @author wangguangwu
  */
 @RestController
-@RequestMapping("/api/v1/tenant-intakes")
+@RequestMapping(ClaimIntakeWebContract.Paths.TENANT_INTAKES)
 public class TenantIntakeController {
 
     private final TenantIntakeContextResolver contextResolver;

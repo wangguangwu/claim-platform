@@ -1,5 +1,6 @@
 package com.claim.platform.intake.interfaces.web.request;
 
+import com.claim.platform.intake.interfaces.web.ClaimIntakeWebContract;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -12,17 +13,20 @@ import java.util.List;
  *
  * @author wangguangwu
  */
-public record UploadMaterialsRequest(@NotBlank @Size(max = 64) String batchNo,
-                                     @NotEmpty List<@Valid MaterialRequest> materials) {
+public record UploadMaterialsRequest(
+        @NotBlank @Size(max = ClaimIntakeWebContract.Limits.BATCH_NO_LENGTH) String batchNo,
+        @NotEmpty List<@Valid MaterialRequest> materials) {
 
     /**
      * 定义单条材料的可验证元数据。
      *
      * @author wangguangwu
      */
-    public record MaterialRequest(Integer sequence, @Size(max = 32) String type,
-                                  @NotBlank @Size(max = 255) String name,
-                                  @Size(max = 1000) String path,
-                                  @Size(max = 1000) String originalPath) {
+    public record MaterialRequest(
+            Integer sequence,
+            @Size(max = ClaimIntakeWebContract.Limits.MATERIAL_TYPE_LENGTH) String type,
+            @NotBlank @Size(max = ClaimIntakeWebContract.Limits.MATERIAL_NAME_LENGTH) String name,
+            @Size(max = ClaimIntakeWebContract.Limits.MATERIAL_PATH_LENGTH) String path,
+            @Size(max = ClaimIntakeWebContract.Limits.MATERIAL_PATH_LENGTH) String originalPath) {
     }
 }

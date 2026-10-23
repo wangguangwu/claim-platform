@@ -6,6 +6,7 @@ import com.claim.platform.intake.domain.model.person.Applicant;
 import com.claim.platform.intake.interfaces.tenant.core.context.TenantContext;
 import com.claim.platform.intake.interfaces.tenant.core.converter.CodeMapper;
 import com.claim.platform.intake.interfaces.tenant.core.converter.RequestConverter;
+import com.claim.platform.intake.interfaces.tenant.reference.ReferenceProtocolConstants;
 import com.claim.platform.intake.interfaces.tenant.reference.dto.ReferenceApplicantPayload;
 import com.claim.platform.intake.interfaces.tenant.reference.dto.ReferenceIntakePayload;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -23,8 +24,10 @@ import java.util.TreeMap;
 public class ReferenceRequestConverter implements RequestConverter<ReferenceIntakePayload> {
 
     private static final CodeMapper<CertificateType> CERTIFICATE_TYPES = new CodeMapper<>(
-            "applicant.certificateType",
-            Map.of("IDCARD", CertificateType.ID_CARD, "PASSPORT", CertificateType.PASSPORT));
+            ReferenceProtocolConstants.CERTIFICATE_TYPE_FIELD,
+            Map.of(
+                    ReferenceProtocolConstants.CERTIFICATE_CODE_ID_CARD, CertificateType.ID_CARD,
+                    ReferenceProtocolConstants.CERTIFICATE_CODE_PASSPORT, CertificateType.PASSPORT));
 
     private final ObjectMapper objectMapper;
 
@@ -45,7 +48,7 @@ public class ReferenceRequestConverter implements RequestConverter<ReferenceInta
 
     private String extensionJson(ReferenceIntakePayload request) {
         Map<String, String> extension = new TreeMap<>();
-        extension.put("accidentDate", request.accidentDate());
+        extension.put(ReferenceProtocolConstants.EXTENSION_ACCIDENT_DATE, request.accidentDate());
         if (request.extension() != null) {
             extension.putAll(request.extension());
         }

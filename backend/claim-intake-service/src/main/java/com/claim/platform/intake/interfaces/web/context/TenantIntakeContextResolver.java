@@ -1,10 +1,9 @@
 package com.claim.platform.intake.interfaces.web.context;
 
 import com.claim.platform.intake.interfaces.tenant.core.context.TenantContext;
+import com.claim.platform.intake.interfaces.web.ClaimIntakeWebContract;
 import com.claim.platform.intake.interfaces.web.exception.TenantContextMissingException;
 import jakarta.servlet.http.HttpServletRequest;
-
-import java.util.regex.Pattern;
 
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -17,10 +16,6 @@ import org.springframework.util.StringUtils;
  */
 @Component
 public class TenantIntakeContextResolver {
-
-    public static final String PROTOCOL_VERSION_HEADER = "X-Claim-Protocol-Version";
-
-    private static final Pattern PROTOCOL_VERSION_PATTERN = Pattern.compile("[A-Za-z0-9._-]{1,32}");
 
     private final GatewayRequestContextResolver gatewayContextResolver;
 
@@ -38,11 +33,11 @@ public class TenantIntakeContextResolver {
      */
     public TenantContext resolve(HttpServletRequest request) {
         GatewayRequestContext gatewayContext = gatewayContextResolver.resolve(request);
-        String protocolVersion = request.getHeader(PROTOCOL_VERSION_HEADER);
+        String protocolVersion = request.getHeader(ClaimIntakeWebContract.Headers.PROTOCOL_VERSION);
         if (!StringUtils.hasText(protocolVersion)) {
             throw new TenantContextMissingException();
         }
-        if (!PROTOCOL_VERSION_PATTERN.matcher(protocolVersion).matches()) {
+        if (!ClaimIntakeWebContract.Patterns.PROTOCOL_VERSION.matcher(protocolVersion).matches()) {
             throw new IllegalArgumentException("协议版本头格式非法");
         }
         return new TenantContext(gatewayContext.tenantCode(), protocolVersion, gatewayContext.traceId());

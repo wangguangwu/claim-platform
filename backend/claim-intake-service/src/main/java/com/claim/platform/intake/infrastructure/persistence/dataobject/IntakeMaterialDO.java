@@ -4,32 +4,36 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.claim.platform.intake.infrastructure.persistence.IntakeMaterialTable;
 
 /**
  * Claim Intake 所拥有的签收材料元数据 MyBatis-Plus 数据对象。
  *
  * @author wangguangwu
  */
-@TableName("t_claim_intake_material")
+@TableName(IntakeMaterialTable.NAME)
 public class IntakeMaterialDO {
-    @TableId(type = IdType.AUTO)
+    @TableId(value = IntakeMaterialTable.ID, type = IdType.AUTO)
     private Long id;
-    @TableField("tenant_code")
+    @TableField(IntakeMaterialTable.TENANT_CODE)
     private String tenantCode;
-    @TableField("sign_no")
+    @TableField(IntakeMaterialTable.SIGN_NO)
     private String signNo;
-    @TableField("batch_no")
+    @TableField(IntakeMaterialTable.BATCH_NO)
     private String batchNo;
-    @TableField("seq")
+    @TableField(IntakeMaterialTable.SEQUENCE)
     private Integer sequence;
+    @TableField(IntakeMaterialTable.TYPE)
     private String type;
+    @TableField(IntakeMaterialTable.NAME_FIELD)
     private String name;
+    @TableField(IntakeMaterialTable.PATH)
     private String path;
-    @TableField("original_path")
+    @TableField(IntakeMaterialTable.ORIGINAL_PATH)
     private String originalPath;
-    @TableField("is_downloaded")
+    @TableField(IntakeMaterialTable.IS_DOWNLOADED)
     private boolean downloaded;
-    @TableField("is_deleted")
+    @TableField(IntakeMaterialTable.IS_DELETED)
     private boolean deleted;
 
     public IntakeMaterialDO() {

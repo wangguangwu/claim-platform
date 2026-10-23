@@ -1,5 +1,6 @@
 package com.claim.platform.intake.interfaces.web.request;
 
+import com.claim.platform.intake.interfaces.web.ClaimIntakeWebContract;
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -10,8 +11,8 @@ import jakarta.validation.constraints.Size;
  * @author wangguangwu
  */
 public record CreateIntakeRequest(
-        @NotBlank @Size(max = 64) String externalApplyNo,
-        @Size(max = 64) String applicantName,
+        @NotBlank @Size(max = ClaimIntakeWebContract.Limits.IDEMPOTENCY_KEY_LENGTH) String externalApplyNo,
+        @Size(max = ClaimIntakeWebContract.Limits.APPLICANT_NAME_LENGTH) String applicantName,
         JsonNode applicantInfo,
         JsonNode accidentPersonInfo,
         JsonNode mainInsuredInfo,

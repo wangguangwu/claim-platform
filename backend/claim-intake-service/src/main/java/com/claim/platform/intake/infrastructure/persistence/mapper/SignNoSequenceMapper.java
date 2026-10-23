@@ -1,8 +1,11 @@
 package com.claim.platform.intake.infrastructure.persistence.mapper;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.claim.platform.intake.domain.model.SignNoFormat;
+import com.claim.platform.intake.infrastructure.persistence.ClaimIntakeTable;
+import com.claim.platform.intake.infrastructure.persistence.dataobject.ClaimIntakeDO;
 import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
 
 /**
  * 查询 Claim Intake 自有表中指定业务日期的签收号高水位。
@@ -11,18 +14,24 @@ import org.apache.ibatis.annotations.Select;
  * @author wangguangwu
  */
 @Mapper
-public interface SignNoSequenceMapper {
+public interface SignNoSequenceMapper extends BaseMapper<ClaimIntakeDO> {
+
+    String MAX_SIGN_NO_EXPRESSION =
+            "MAX(" + ClaimIntakeTable.SIGN_NO + ") AS " + ClaimIntakeTable.SIGN_NO;
+    String SIGN_NO_LENGTH_EXPRESSION =
+            "CHAR_LENGTH(" + ClaimIntakeTable.SIGN_NO + ") = {0}";
 
     /**
      * 返回闭开区间内固定 17 位签收号的最大值；没有记录时返回 null。
      * 调用方必须使用方法参数 {@code start/end} 限制业务日期。
      */
-    @Select("""
-            SELECT MAX(sign_no)
-            FROM t_claim_intake
-            WHERE sign_no >= #{start}
-              AND sign_no < #{end}
-              AND CHAR_LENGTH(sign_no) = 17
-            """)
-    String selectMaxSignNo(@Param("start") String start, @Param("end") String end);
+    default String selectMaxSignNo(String start, String end) {
+        QueryWrapper<ClaimIntakeDO> query = new QueryWrapper<>();
+        query.select(MAX_SIGN_NO_EXPRESSION)
+                .ge(ClaimIntakeTable.SIGN_NO, start)
+                .lt(ClaimIntakeTable.SIGN_NO, end)
+                .apply(SIGN_NO_LENGTH_EXPRESSION, SignNoFormat.SIGN_NO_LENGTH);
+        ClaimIntakeDO result = selectOne(query);
+        return result == null ? null : result.getSignNo();
+    }
 }

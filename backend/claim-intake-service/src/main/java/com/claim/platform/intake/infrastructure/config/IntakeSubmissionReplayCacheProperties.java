@@ -23,10 +23,14 @@ import java.time.Duration;
 @ConfigurationProperties(prefix = "claim.intake.submission.replay-cache")
 public class IntakeSubmissionReplayCacheProperties {
 
+    public static final String DEFAULT_KEY_PREFIX = "claim:intake:replay:";
+    public static final long DEFAULT_TTL_HOURS = 24L;
+    public static final Duration DEFAULT_TTL = Duration.ofHours(DEFAULT_TTL_HOURS);
+
     @NotBlank
-    private String keyPrefix = "claim:intake:replay:";
+    private String keyPrefix = DEFAULT_KEY_PREFIX;
 
     @NotNull
     @DurationMin(millis = 1, message = "幂等定位缓存 TTL 必须大于 0")
-    private Duration ttl = Duration.ofHours(24);
+    private Duration ttl = DEFAULT_TTL;
 }

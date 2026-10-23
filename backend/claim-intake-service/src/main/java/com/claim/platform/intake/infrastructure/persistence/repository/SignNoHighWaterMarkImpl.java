@@ -40,7 +40,7 @@ public class SignNoHighWaterMarkImpl implements SignNoHighWaterMark {
         }
         try {
             long sequence = SignNoFormat.parseSequence(maxSignNo);
-            if (sequence < 1 || sequence > SignNoFormat.MAX_SEQUENCE) {
+            if (sequence < SignNoFormat.MIN_SEQUENCE || sequence > SignNoFormat.MAX_SEQUENCE) {
                 throw new IllegalArgumentException("签收号高水位越界");
             }
             return sequence;

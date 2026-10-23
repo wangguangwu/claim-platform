@@ -15,12 +15,17 @@ import java.util.regex.Pattern;
 public final class SignNoFormat {
 
     public static final String PREFIX = "S";
+    public static final int DATE_DIGITS = 8;
     public static final int SEQUENCE_DIGITS = 8;
-    public static final int SIGN_NO_LENGTH = 17;
+    public static final int SIGN_NO_LENGTH = PREFIX.length() + DATE_DIGITS + SEQUENCE_DIGITS;
+    public static final long MIN_SEQUENCE = 1L;
     public static final long MAX_SEQUENCE = 99_999_999L;
 
+    private static final int DATE_START_INDEX = PREFIX.length();
+    private static final int SEQUENCE_START_INDEX = DATE_START_INDEX + DATE_DIGITS;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
-    private static final Pattern CURRENT_FORMAT = Pattern.compile("^S\\d{" + (SEQUENCE_DIGITS + 8) + "}$");
+    private static final Pattern CURRENT_FORMAT =
+            Pattern.compile("^" + PREFIX + "\\d{" + (DATE_DIGITS + SEQUENCE_DIGITS) + "}$");
 
     private SignNoFormat() {
     }
@@ -37,7 +42,7 @@ public final class SignNoFormat {
         if (businessDate == null) {
             throw new IllegalArgumentException("业务日期不能为空");
         }
-        if (sequence < 1 || sequence > MAX_SEQUENCE) {
+        if (sequence < MIN_SEQUENCE || sequence > MAX_SEQUENCE) {
             throw new IllegalArgumentException("签收号流水号越界");
         }
         return PREFIX + businessDate.format(DATE_FORMATTER)
@@ -58,7 +63,7 @@ public final class SignNoFormat {
      */
     public static LocalDate parseDate(String signNo) {
         requireCurrentFormat(signNo);
-        return LocalDate.parse(signNo.substring(1, 9), DATE_FORMATTER);
+        return LocalDate.parse(signNo.substring(DATE_START_INDEX, SEQUENCE_START_INDEX), DATE_FORMATTER);
     }
 
     /**
@@ -68,7 +73,7 @@ public final class SignNoFormat {
      */
     public static long parseSequence(String signNo) {
         requireCurrentFormat(signNo);
-        return Long.parseLong(signNo.substring(9, SIGN_NO_LENGTH));
+        return Long.parseLong(signNo.substring(SEQUENCE_START_INDEX, SIGN_NO_LENGTH));
     }
 
     /**

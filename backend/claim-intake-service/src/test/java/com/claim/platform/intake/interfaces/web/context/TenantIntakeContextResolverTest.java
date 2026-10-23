@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.claim.platform.intake.interfaces.tenant.core.context.TenantContext;
+import com.claim.platform.intake.interfaces.web.ClaimIntakeWebContract;
 import com.claim.platform.intake.interfaces.web.exception.TenantContextMissingException;
 import com.claim.platform.intake.interfaces.web.exception.UntrustedCallerException;
 import org.junit.jupiter.api.Test;
@@ -77,7 +78,7 @@ class TenantIntakeContextResolverTest {
             request.addHeader("X-Claim-Tenant", tenantCode);
         }
         if (protocolVersion != null) {
-            request.addHeader(TenantIntakeContextResolver.PROTOCOL_VERSION_HEADER, protocolVersion);
+            request.addHeader(ClaimIntakeWebContract.Headers.PROTOCOL_VERSION, protocolVersion);
         }
         if (traceId != null) {
             request.addHeader("X-Trace-Id", traceId);

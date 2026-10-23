@@ -20,12 +20,6 @@ import java.util.concurrent.atomic.AtomicLong;
 @Component
 public class SignNoMetrics {
 
-    private static final String ALLOCATION_METRIC = "claim.intake.number.allocation";
-    private static final String FALLBACK_METRIC = "claim.intake.number.fallback";
-    private static final String RECOVERY_METRIC = "claim.intake.number.recovery";
-    private static final String CONFLICT_METRIC = "claim.intake.number.conflict";
-    private static final String SEQUENCE_GAP_METRIC = "claim.intake.number.sequence_gap";
-
     private final MeterRegistry meterRegistry;
     private final Map<String, AtomicLong> sequenceGaps = new ConcurrentHashMap<>();
 
@@ -34,20 +28,25 @@ public class SignNoMetrics {
     }
 
     public void recordAllocation(SignNoSource source, String result) {
-        meterRegistry.counter(ALLOCATION_METRIC,
-                "source", source.name().toLowerCase(Locale.ROOT), "result", result).increment();
+        meterRegistry.counter(IntakeMetricConstants.SIGN_NO_ALLOCATION_METRIC,
+                IntakeMetricConstants.TAG_SOURCE, source.name().toLowerCase(Locale.ROOT),
+                IntakeMetricConstants.TAG_RESULT, result).increment();
     }
 
     public void recordFallback(String result) {
-        meterRegistry.counter(FALLBACK_METRIC, "result", result).increment();
+        meterRegistry.counter(IntakeMetricConstants.SIGN_NO_FALLBACK_METRIC,
+                IntakeMetricConstants.TAG_RESULT, result).increment();
     }
 
     public void recordRecovery(SignNoRecoveryTrigger trigger, String result) {
-        meterRegistry.counter(RECOVERY_METRIC, "trigger", trigger.code(), "result", result).increment();
+        meterRegistry.counter(IntakeMetricConstants.SIGN_NO_RECOVERY_METRIC,
+                IntakeMetricConstants.TAG_TRIGGER, trigger.code(),
+                IntakeMetricConstants.TAG_RESULT, result).increment();
     }
 
     public void recordConflict(String type) {
-        meterRegistry.counter(CONFLICT_METRIC, "type", type).increment();
+        meterRegistry.counter(IntakeMetricConstants.SIGN_NO_CONFLICT_METRIC,
+                IntakeMetricConstants.TAG_TYPE, type).increment();
     }
 
     /**
@@ -58,8 +57,8 @@ public class SignNoMetrics {
     public void recordSequenceGap(String scope, long gap) {
         sequenceGaps.computeIfAbsent(scope, key -> {
             AtomicLong value = new AtomicLong(-1);
-            Gauge.builder(SEQUENCE_GAP_METRIC, value, AtomicLong::doubleValue)
-                    .tag("scope", key)
+            Gauge.builder(IntakeMetricConstants.SIGN_NO_SEQUENCE_GAP_METRIC, value, AtomicLong::doubleValue)
+                    .tag(IntakeMetricConstants.TAG_SCOPE, key)
                     .register(meterRegistry);
             return value;
         }).set(gap);

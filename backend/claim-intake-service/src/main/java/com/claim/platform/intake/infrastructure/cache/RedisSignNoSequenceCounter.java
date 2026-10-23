@@ -6,6 +6,7 @@ import com.claim.platform.intake.application.port.SignNoIncrementResult;
 import com.claim.platform.intake.application.port.SignNoSequenceCounter;
 import com.claim.platform.intake.application.result.SignNoReconcileAllocationOutcome;
 import com.claim.platform.intake.application.result.SignNoReconcileOutcome;
+import com.claim.platform.intake.domain.model.SignNoFormat;
 import com.claim.platform.intake.infrastructure.config.SignNoProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,7 +17,6 @@ import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
@@ -31,17 +31,15 @@ import java.util.List;
 @RequiredArgsConstructor
 public class RedisSignNoSequenceCounter implements SignNoSequenceCounter {
 
-    private static final DateTimeFormatter DATE_KEY_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
-    private static final long MISSING_MARKER = -1L;
-    private static final long INVALID_MARKER = -2L;
-
     private final StringRedisTemplate redisTemplate;
     private final SignNoProperties properties;
 
-    private final DefaultRedisScript<Long> allocateScript = script("allocate.lua", Long.class);
+    private final DefaultRedisScript<Long> allocateScript =
+            script(RedisCacheConstants.ALLOCATE_SCRIPT, Long.class);
     private final DefaultRedisScript<List> reconcileAndAllocateScript =
-            script("reconcile-and-allocate.lua", List.class);
-    private final DefaultRedisScript<List> reconcileScript = script("reconcile-only.lua", List.class);
+            script(RedisCacheConstants.RECONCILE_AND_ALLOCATE_SCRIPT, List.class);
+    private final DefaultRedisScript<List> reconcileScript =
+            script(RedisCacheConstants.RECONCILE_ONLY_SCRIPT, List.class);
 
     @Override
     public SignNoIncrementResult tryIncrement(LocalDate businessDate) {
@@ -49,13 +47,13 @@ public class RedisSignNoSequenceCounter implements SignNoSequenceCounter {
         if (result == null) {
             throw new SignNoUnavailableException(SignNoUnavailableReason.REDIS_UNAVAILABLE);
         }
-        if (result == MISSING_MARKER) {
+        if (result == RedisCacheConstants.MISSING_MARKER) {
             return SignNoIncrementResult.Missing.INSTANCE;
         }
-        if (result == INVALID_MARKER) {
+        if (result == RedisCacheConstants.INVALID_MARKER) {
             return SignNoIncrementResult.Invalid.INSTANCE;
         }
-        if (result < 1) {
+        if (result < SignNoFormat.MIN_SEQUENCE) {
             throw new SignNoUnavailableException(SignNoUnavailableReason.REDIS_UNAVAILABLE);
         }
         return new SignNoIncrementResult.Allocated(result);
@@ -72,14 +70,16 @@ public class RedisSignNoSequenceCounter implements SignNoSequenceCounter {
             log.warn("claim intake sign no counter reconcile and allocate failed date={}", businessDate, exception);
             throw new SignNoUnavailableException(SignNoUnavailableReason.REDIS_UNAVAILABLE, exception);
         }
-        if (result == null || result.size() != 3) {
+        if (result == null || result.size() != RedisCacheConstants.RECONCILE_ALLOCATE_RESULT_SIZE) {
             throw new SignNoUnavailableException(SignNoUnavailableReason.REDIS_UNAVAILABLE);
         }
-        long sequence = toLong(result.get(0));
-        if (sequence < 1) {
+        long sequence = toLong(result.get(RedisCacheConstants.RECONCILE_ALLOCATE_SEQUENCE_INDEX));
+        if (sequence < SignNoFormat.MIN_SEQUENCE) {
             throw new SignNoUnavailableException(SignNoUnavailableReason.REDIS_UNAVAILABLE);
         }
-        return new SignNoReconcileAllocationOutcome(sequence, toLong(result.get(1)), toLong(result.get(2)));
+        return new SignNoReconcileAllocationOutcome(sequence,
+                toLong(result.get(RedisCacheConstants.RECONCILE_ALLOCATE_BEFORE_INDEX)),
+                toLong(result.get(RedisCacheConstants.RECONCILE_ALLOCATE_AFTER_INDEX)));
     }
 
     @Override
@@ -93,10 +93,12 @@ public class RedisSignNoSequenceCounter implements SignNoSequenceCounter {
             log.warn("claim intake sign no counter reconcile failed date={}", businessDate, exception);
             throw new SignNoUnavailableException(SignNoUnavailableReason.REDIS_UNAVAILABLE, exception);
         }
-        if (result == null || result.size() != 2) {
+        if (result == null || result.size() != RedisCacheConstants.RECONCILE_RESULT_SIZE) {
             throw new SignNoUnavailableException(SignNoUnavailableReason.REDIS_UNAVAILABLE);
         }
-        return new SignNoReconcileOutcome(toLong(result.get(0)), toLong(result.get(1)));
+        return new SignNoReconcileOutcome(
+                toLong(result.get(RedisCacheConstants.RECONCILE_BEFORE_INDEX)),
+                toLong(result.get(RedisCacheConstants.RECONCILE_AFTER_INDEX)));
     }
 
     private Long execute(DefaultRedisScript<Long> script, String key, String... arguments) {
@@ -109,7 +111,7 @@ public class RedisSignNoSequenceCounter implements SignNoSequenceCounter {
     }
 
     private String counterKey(LocalDate businessDate) {
-        return properties.getKeyPrefix() + businessDate.format(DATE_KEY_FORMATTER);
+        return properties.getKeyPrefix() + businessDate.format(RedisCacheConstants.DATE_KEY_FORMATTER);
     }
 
     private String ttlMillis() {
@@ -128,7 +130,7 @@ public class RedisSignNoSequenceCounter implements SignNoSequenceCounter {
 
     private static <T> DefaultRedisScript<T> script(String name, Class<T> resultType) {
         DefaultRedisScript<T> script = new DefaultRedisScript<>();
-        script.setLocation(new ClassPathResource("lua/sign-no/" + name));
+        script.setLocation(new ClassPathResource(RedisCacheConstants.SIGN_NO_LUA_PATH + name));
         script.setResultType(resultType);
         return script;
     }

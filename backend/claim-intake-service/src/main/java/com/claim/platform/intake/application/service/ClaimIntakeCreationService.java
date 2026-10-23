@@ -3,6 +3,7 @@ package com.claim.platform.intake.application.service;
 import com.claim.platform.intake.application.command.SubmitIntakeCommand;
 import com.claim.platform.intake.application.result.ClaimIntakeResult;
 import com.claim.platform.intake.domain.model.ClaimIntake;
+import com.claim.platform.intake.domain.model.InteractionType;
 import com.claim.platform.intake.domain.repository.ClaimIntakeStore;
 import com.claim.platform.intake.domain.repository.IntakeMaterialStore;
 import com.claim.platform.intake.domain.repository.InteractionLogStore;
@@ -20,8 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class ClaimIntakeCreationService {
-
-    private static final String INTERACTION_SIGN_RECEIVE = "SIGN_RECEIVE";
 
     private final ClaimIntakeStore intakeStore;
     private final IntakeMaterialStore materialStore;
@@ -47,8 +46,8 @@ public class ClaimIntakeCreationService {
         if (hasMaterials) {
             materialStore.saveAll(command.tenantCode(), signNo, command.materials());
         }
-        interactionLogStore.recordSuccess(command.tenantCode(), signNo, INTERACTION_SIGN_RECEIVE, null,
-                command.traceId());
+        interactionLogStore.recordSuccess(command.tenantCode(), signNo,
+                InteractionType.SIGN_RECEIVE.code(), null, command.traceId());
         return new ClaimIntakeResult(signNo, intake.status());
     }
 }

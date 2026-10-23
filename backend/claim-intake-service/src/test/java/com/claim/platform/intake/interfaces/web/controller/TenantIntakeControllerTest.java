@@ -21,6 +21,7 @@ import com.claim.platform.intake.interfaces.tenant.core.exception.IntakePayloadP
 import com.claim.platform.intake.interfaces.tenant.core.exception.IntakeRequestValidationException;
 import com.claim.platform.intake.interfaces.tenant.core.exception.TenantProtocolNotSupportedException;
 import com.claim.platform.intake.interfaces.tenant.core.pipeline.IntakeConvertPipeline;
+import com.claim.platform.intake.interfaces.web.ClaimIntakeWebContract;
 import com.claim.platform.intake.interfaces.web.context.GatewayRequestContextResolver;
 import com.claim.platform.intake.interfaces.web.context.TenantIntakeContextResolver;
 import com.claim.platform.intake.interfaces.web.exception.TenantContextMissingException;
@@ -207,7 +208,7 @@ class TenantIntakeControllerTest {
         return post("/api/v1/tenant-intakes")
                 .contentType(MediaType.APPLICATION_JSON)
                 .header("X-Claim-Tenant", "reference")
-                .header(TenantIntakeContextResolver.PROTOCOL_VERSION_HEADER, "v1")
+                .header(ClaimIntakeWebContract.Headers.PROTOCOL_VERSION, "v1")
                 .content("{}");
     }
 }

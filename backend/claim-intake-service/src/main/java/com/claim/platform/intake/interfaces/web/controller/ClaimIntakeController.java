@@ -8,6 +8,7 @@ import com.claim.platform.intake.application.command.UploadMaterialsCommand;
 import com.claim.platform.intake.application.result.ClaimIntakeDetailResult;
 import com.claim.platform.intake.application.result.ClaimIntakeResult;
 import com.claim.platform.intake.domain.model.IntakeMaterial;
+import com.claim.platform.intake.interfaces.web.ClaimIntakeWebContract;
 import com.claim.platform.intake.interfaces.web.converter.PersonRequestConverter;
 import com.claim.platform.intake.interfaces.web.context.GatewayRequestContext;
 import com.claim.platform.intake.interfaces.web.context.GatewayRequestContextResolver;
@@ -40,7 +41,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @Validated
 @RestController
-@RequestMapping("/api/v1/claim-intakes")
+@RequestMapping(ClaimIntakeWebContract.Paths.CLAIM_INTAKES)
 public class ClaimIntakeController {
 
     private final GatewayRequestContextResolver contextResolver;
@@ -87,7 +88,7 @@ public class ClaimIntakeController {
      */
     @PostMapping("/{signNo}/materials")
     public ResponseEntity<ApiResult<ClaimIntakeResult>> uploadMaterials(
-            @PathVariable @NotBlank @Size(max = 64) String signNo,
+            @PathVariable @NotBlank @Size(max = ClaimIntakeWebContract.Limits.SIGN_NO_LENGTH) String signNo,
             @Valid @RequestBody UploadMaterialsRequest request, HttpServletRequest servletRequest) {
         GatewayRequestContext context = resolveContext(servletRequest);
         List<IntakeMaterial> materials = request.materials().stream()
@@ -106,7 +107,8 @@ public class ClaimIntakeController {
      */
     @GetMapping("/{signNo}")
     public ResponseEntity<ApiResult<ClaimIntakeDetailResult>> get(
-            @PathVariable @NotBlank @Size(max = 64) String signNo, HttpServletRequest servletRequest) {
+            @PathVariable @NotBlank @Size(max = ClaimIntakeWebContract.Limits.SIGN_NO_LENGTH) String signNo,
+            HttpServletRequest servletRequest) {
         GatewayRequestContext context = resolveContext(servletRequest);
         ClaimIntakeDetailResult result = queryService.get(context.tenantCode(), signNo);
         return ResponseEntity.ok(ApiResult.success(result, context.traceId()));

@@ -12,7 +12,6 @@ import org.redisson.client.RedisException;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -25,9 +24,6 @@ import java.util.concurrent.TimeUnit;
 @Component
 @RequiredArgsConstructor
 public class RedissonSignNoRecoveryLock implements SignNoRecoveryLock {
-
-    private static final String RECONCILE_LOCK_SEGMENT = "reconcile-lock:";
-    private static final DateTimeFormatter DATE_KEY_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
 
     private final RedissonClient redissonClient;
     private final SignNoProperties properties;
@@ -53,7 +49,8 @@ public class RedissonSignNoRecoveryLock implements SignNoRecoveryLock {
     }
 
     private String lockKey(LocalDate businessDate) {
-        return properties.getKeyPrefix() + RECONCILE_LOCK_SEGMENT + businessDate.format(DATE_KEY_FORMATTER);
+        return properties.getKeyPrefix() + RedisCacheConstants.RECONCILE_LOCK_SEGMENT
+                + businessDate.format(RedisCacheConstants.DATE_KEY_FORMATTER);
     }
 
     /**

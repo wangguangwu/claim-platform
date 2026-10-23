@@ -4,27 +4,30 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.claim.platform.intake.infrastructure.persistence.InteractionLogTable;
 
 /**
  * 保存不含敏感请求内容的签收交互审计日志。
  *
  * @author wangguangwu
  */
-@TableName("t_claim_intake_interaction_log")
+@TableName(InteractionLogTable.NAME)
 public class InteractionLogDO {
-    @TableId(type = IdType.AUTO)
+    @TableId(value = InteractionLogTable.ID, type = IdType.AUTO)
     private Long id;
-    @TableField("tenant_code")
+    @TableField(InteractionLogTable.TENANT_CODE)
     private String tenantCode;
-    @TableField("sign_no")
+    @TableField(InteractionLogTable.SIGN_NO)
     private String signNo;
-    @TableField("interaction_type")
+    @TableField(InteractionLogTable.INTERACTION_TYPE)
     private String interactionType;
+    @TableField(InteractionLogTable.DIRECTION)
     private String direction;
-    @TableField("request_id")
+    @TableField(InteractionLogTable.REQUEST_ID)
     private String requestId;
-    @TableField("trace_id")
+    @TableField(InteractionLogTable.TRACE_ID)
     private String traceId;
+    @TableField(InteractionLogTable.RESULT)
     private String result;
 
     public InteractionLogDO() {
@@ -34,9 +37,9 @@ public class InteractionLogDO {
         this.tenantCode = tenantCode;
         this.signNo = signNo;
         this.interactionType = interactionType;
-        this.direction = "IN";
+        this.direction = InteractionDirection.IN.code();
         this.requestId = requestId;
         this.traceId = traceId;
-        this.result = "SUCCESS";
+        this.result = InteractionResult.SUCCESS.code();
     }
 }

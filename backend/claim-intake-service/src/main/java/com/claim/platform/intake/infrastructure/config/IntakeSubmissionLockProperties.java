@@ -23,14 +23,20 @@ import java.time.Duration;
 @ConfigurationProperties(prefix = "claim.intake.submission.lock")
 public class IntakeSubmissionLockProperties {
 
+    public static final long DEFAULT_WAIT_TIME_MILLIS = 3000L;
+    public static final Duration DEFAULT_WAIT_TIME = Duration.ofMillis(DEFAULT_WAIT_TIME_MILLIS);
+    public static final long DEFAULT_LEASE_TIME_SECONDS = 10L;
+    public static final Duration DEFAULT_LEASE_TIME = Duration.ofSeconds(DEFAULT_LEASE_TIME_SECONDS);
+    public static final String DEFAULT_KEY_PREFIX = "claim:intake:submit:";
+
     @NotNull
     @DurationMin(millis = 0, message = "锁等待时间不能为负数")
-    private Duration waitTime = Duration.ofSeconds(3);
+    private Duration waitTime = DEFAULT_WAIT_TIME;
 
     @NotNull
     @DurationMin(millis = 1, message = "锁租期必须大于 0")
-    private Duration leaseTime = Duration.ofSeconds(10);
+    private Duration leaseTime = DEFAULT_LEASE_TIME;
 
     @NotBlank
-    private String keyPrefix = "claim:intake:submit:";
+    private String keyPrefix = DEFAULT_KEY_PREFIX;
 }

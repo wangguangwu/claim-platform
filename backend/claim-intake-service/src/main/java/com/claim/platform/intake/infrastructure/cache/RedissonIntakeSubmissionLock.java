@@ -3,6 +3,7 @@ package com.claim.platform.intake.infrastructure.cache;
 import com.claim.platform.intake.application.port.IntakeSubmissionLock;
 import com.claim.platform.intake.application.port.IntakeSubmissionLockHandle;
 import com.claim.platform.intake.application.port.LockAcquireStatus;
+import com.claim.platform.intake.application.service.IntakeMetricConstants;
 import com.claim.platform.intake.infrastructure.config.IntakeSubmissionLockProperties;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -32,12 +33,6 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class RedissonIntakeSubmissionLock implements IntakeSubmissionLock {
 
-    private static final String LOCK_METRIC = "claim.intake.submission.lock";
-    private static final String RESULT_ACQUIRED = "acquired";
-    private static final String RESULT_TIMEOUT = "timeout";
-    private static final String RESULT_UNAVAILABLE = "unavailable";
-    private static final String KEY_SEPARATOR = "\n";
-
     private final RedissonClient redissonClient;
     private final IntakeSubmissionLockProperties properties;
     private final MeterRegistry meterRegistry;
@@ -50,32 +45,35 @@ public class RedissonIntakeSubmissionLock implements IntakeSubmissionLock {
             RLock lock = redissonClient.getLock(lockKey);
             boolean acquired = lock.tryLock(properties.getWaitTime().toMillis(), TimeUnit.MILLISECONDS);
             if (!acquired) {
-                recordLockTimer(startedAt, RESULT_TIMEOUT);
-                log.warn("claim intake submission lock timeout tenantCode={} result={}", tenantCode, RESULT_TIMEOUT);
+                recordLockTimer(startedAt, IntakeMetricConstants.RESULT_TIMEOUT);
+                log.warn("claim intake submission lock timeout tenantCode={} result={}", tenantCode,
+                        IntakeMetricConstants.RESULT_TIMEOUT);
                 return new StaticHandle(LockAcquireStatus.TIMEOUT);
             }
-            recordLockTimer(startedAt, RESULT_ACQUIRED);
+            recordLockTimer(startedAt, IntakeMetricConstants.RESULT_ACQUIRED);
             return new AcquiredHandle(lock, tenantCode);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            recordLockTimer(startedAt, RESULT_TIMEOUT);
-            log.warn("claim intake submission lock interrupted tenantCode={} result={}", tenantCode, RESULT_TIMEOUT);
+            recordLockTimer(startedAt, IntakeMetricConstants.RESULT_TIMEOUT);
+            log.warn("claim intake submission lock interrupted tenantCode={} result={}", tenantCode,
+                    IntakeMetricConstants.RESULT_TIMEOUT);
             return new StaticHandle(LockAcquireStatus.TIMEOUT);
         } catch (RedisException exception) {
-            recordLockTimer(startedAt, RESULT_UNAVAILABLE);
+            recordLockTimer(startedAt, IntakeMetricConstants.RESULT_UNAVAILABLE);
             log.warn("claim intake submission lock unavailable tenantCode={} result={}", tenantCode,
-                    RESULT_UNAVAILABLE, exception);
+                    IntakeMetricConstants.RESULT_UNAVAILABLE, exception);
             return new StaticHandle(LockAcquireStatus.UNAVAILABLE);
         }
     }
 
     private String buildLockKey(String tenantCode, String externalApplyNo) {
-        return properties.getKeyPrefix() + sha256(tenantCode + KEY_SEPARATOR + externalApplyNo);
+        return properties.getKeyPrefix()
+                + sha256(tenantCode + RedisCacheConstants.KEY_SEPARATOR + externalApplyNo);
     }
 
     private String sha256(String value) {
         try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            MessageDigest digest = MessageDigest.getInstance(RedisCacheConstants.SHA_256);
             return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 摘要算法不可用", exception);
@@ -83,8 +81,8 @@ public class RedissonIntakeSubmissionLock implements IntakeSubmissionLock {
     }
 
     private void recordLockTimer(long startedAt, String result) {
-        Timer.builder(LOCK_METRIC)
-                .tag("result", result)
+        Timer.builder(IntakeMetricConstants.SUBMISSION_LOCK_METRIC)
+                .tag(IntakeMetricConstants.TAG_RESULT, result)
                 .register(meterRegistry)
                 .record(Duration.ofNanos(System.nanoTime() - startedAt));
     }
