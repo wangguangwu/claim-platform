@@ -24,13 +24,7 @@
 
 ## 活动 Spec
 
-| Spec | 状态 | 适用任务 | 当前边界或解除条件 |
-| --- | --- | --- | --- |
-| `active/person-model/` | `In Progress` | Claim Intake 人员领域模型、DO 与转换 | 完成测试改造与 `mvn verify` |
-| `active/claim-intake-standard-flow/` | `Blocked` | 签收命令、材料、提交幂等、业务锁与服务内事务 | Gateway 可信身份、租户、Trace、协议版本头透传与端到端验证 |
-| `active/tenant-adapter-intake/` | `Blocked` | 租户报文解析、校验、转换、协议注册与入口 | 取得真实租户报文、字段/材料编码表和协议版本 |
-| `active/sign-no-generation/` | `Ready for Release` | 签收号分配、迁移、Redis/MySQL 降级与校准 | 进入发布验证、告警与生产迁移流程 |
-| `active/backend-constants-mybatis-plus/` | `In Review` | Claim Intake 常量治理与 MyBatis-Plus 查询重构 | 完成人工评审 |
+无。2026-10-23 清理：原 5 个活动 Spec（`person-model`、`claim-intake-standard-flow`、`tenant-adapter-intake`、`sign-no-generation`、`backend-constants-mybatis-plus`）已删除，其验收证据保留在 git 历史提交 `b1522af` 中。
 
 ## 归档 Spec
 
