@@ -10,8 +10,10 @@ import com.claim.platform.intake.domain.model.ClaimIntake;
 import com.claim.platform.intake.domain.repository.ClaimIntakeStore;
 import com.claim.platform.intake.domain.repository.InteractionLogStore;
 import com.claim.platform.intake.domain.repository.IntakeMaterialStore;
+
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;

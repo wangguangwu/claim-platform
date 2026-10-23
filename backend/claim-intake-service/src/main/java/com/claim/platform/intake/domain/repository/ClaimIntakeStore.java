@@ -2,6 +2,7 @@ package com.claim.platform.intake.domain.repository;
 
 import com.claim.platform.intake.domain.model.ClaimIntake;
 import com.claim.platform.intake.domain.model.ClaimIntakeDetails;
+
 import java.util.Optional;
 
 /**

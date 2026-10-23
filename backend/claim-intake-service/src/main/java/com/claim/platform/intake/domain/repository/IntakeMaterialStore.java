@@ -1,6 +1,7 @@
 package com.claim.platform.intake.domain.repository;
 
 import com.claim.platform.intake.domain.model.IntakeMaterial;
+
 import java.util.List;
 
 /**

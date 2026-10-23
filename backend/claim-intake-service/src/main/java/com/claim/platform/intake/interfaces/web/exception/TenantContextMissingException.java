@@ -6,5 +6,7 @@ package com.claim.platform.intake.interfaces.web.exception;
  * @author wangguangwu
  */
 public class TenantContextMissingException extends RuntimeException {
-    public TenantContextMissingException() { super("缺少租户上下文"); }
+    public TenantContextMissingException() {
+        super("缺少租户上下文");
+    }
 }

@@ -15,7 +15,9 @@ import com.claim.platform.intake.interfaces.tenant.reference.dto.ReferenceIntake
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
+
 import java.util.List;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 

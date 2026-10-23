@@ -24,8 +24,10 @@ import com.claim.platform.intake.interfaces.web.context.GatewayRequestContextRes
 import com.claim.platform.intake.interfaces.web.context.TenantIntakeContextResolver;
 import com.claim.platform.intake.interfaces.web.exception.TenantContextMissingException;
 import jakarta.servlet.http.HttpServletRequest;
+
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -12,13 +12,19 @@ import com.baomidou.mybatisplus.annotation.TableName;
  */
 @TableName("t_claim_intake_interaction_log")
 public class InteractionLogDO {
-    @TableId(type = IdType.AUTO) private Long id;
-    @TableField("tenant_code") private String tenantCode;
-    @TableField("sign_no") private String signNo;
-    @TableField("interaction_type") private String interactionType;
+    @TableId(type = IdType.AUTO)
+    private Long id;
+    @TableField("tenant_code")
+    private String tenantCode;
+    @TableField("sign_no")
+    private String signNo;
+    @TableField("interaction_type")
+    private String interactionType;
     private String direction;
-    @TableField("request_id") private String requestId;
-    @TableField("trace_id") private String traceId;
+    @TableField("request_id")
+    private String requestId;
+    @TableField("trace_id")
+    private String traceId;
     private String result;
 
     public InteractionLogDO() {

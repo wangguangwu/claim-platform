@@ -7,8 +7,10 @@ import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import com.claim.platform.intake.domain.model.CertificateType;
 import com.claim.platform.intake.domain.model.IntakeMaterialType;
 import com.claim.platform.intake.interfaces.tenant.core.exception.IntakeCodeMappingException;
+
 import java.util.HashMap;
 import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 
 /**

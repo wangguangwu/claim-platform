@@ -2,9 +2,11 @@ package com.claim.platform.intake.interfaces.web.context;
 
 import com.claim.platform.intake.interfaces.web.exception.TenantContextMissingException;
 import com.claim.platform.intake.interfaces.web.exception.UntrustedCallerException;
+
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.UUID;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -29,7 +31,7 @@ public class GatewayRequestContextResolver {
     /**
      * 校验调用方后返回可信上下文；请求体从不参与租户判定。
      *
-     * @throws UntrustedCallerException 服务间调用凭证不匹配
+     * @throws UntrustedCallerException      服务间调用凭证不匹配
      * @throws TenantContextMissingException 未提供 Gateway 解析后的租户
      */
     public GatewayRequestContext resolve(HttpServletRequest request) {

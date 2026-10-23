@@ -8,5 +8,7 @@ import com.claim.platform.intake.domain.model.IntakeStatus;
  * @author wangguangwu
  */
 public class InvalidIntakeStatusException extends RuntimeException {
-    public InvalidIntakeStatusException(IntakeStatus status) { super("当前申请状态不允许该操作: " + status); }
+    public InvalidIntakeStatusException(IntakeStatus status) {
+        super("当前申请状态不允许该操作: " + status);
+    }
 }

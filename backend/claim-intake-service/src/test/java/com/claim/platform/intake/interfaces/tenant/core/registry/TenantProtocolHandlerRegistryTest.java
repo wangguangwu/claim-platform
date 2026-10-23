@@ -7,8 +7,10 @@ import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import com.claim.platform.intake.interfaces.tenant.core.context.TenantContext;
 import com.claim.platform.intake.interfaces.tenant.core.exception.TenantProtocolNotSupportedException;
 import com.claim.platform.intake.interfaces.tenant.support.StubTenantProtocolHandler;
+
 import java.util.Arrays;
 import java.util.List;
+
 import org.junit.jupiter.api.Test;
 
 /**
@@ -52,7 +54,7 @@ class TenantProtocolHandlerRegistryTest {
     void shouldRejectIncompleteProtocolHandler() {
         TenantProtocolHandler<String> incomplete = new StubTenantProtocolHandler<>(
                 new TenantProtocolKey("tenant-a", "v1"), null, request -> {
-                }, (request, context) -> null);
+        }, (request, context) -> null);
 
         assertThatThrownBy(() -> registry(incomplete))
                 .isInstanceOf(IllegalStateException.class)
@@ -92,7 +94,7 @@ class TenantProtocolHandlerRegistryTest {
     private TenantProtocolHandler<String> handler(String tenantCode, String protocolVersion) {
         return new StubTenantProtocolHandler<>(new TenantProtocolKey(tenantCode, protocolVersion),
                 payload -> payload, request -> {
-                }, (request, context) -> null);
+        }, (request, context) -> null);
     }
 
     private TenantProtocolHandlerRegistry registry(TenantProtocolHandler<?>... handlers) {

@@ -12,6 +12,6 @@ import com.claim.platform.intake.domain.model.person.Payee;
  * @author wangguangwu
  */
 public record ClaimIntakeState(String tenantCode, String signNo, String externalApplyNo, String applicantName,
-                                   Applicant applicant, AccidentPerson accidentPerson, MainInsured mainInsured,
-                                   Payee payee, String extJson, IntakeStatus status) {
+                               Applicant applicant, AccidentPerson accidentPerson, MainInsured mainInsured,
+                               Payee payee, String extJson, IntakeStatus status) {
 }

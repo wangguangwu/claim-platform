@@ -12,6 +12,6 @@ import com.claim.platform.intake.domain.model.person.Payee;
  * @author wangguangwu
  */
 public record SubmitIntakeCommand(String tenantCode, String traceId, String externalApplyNo,
-                                           String applicantName, Applicant applicant, AccidentPerson accidentPerson,
-                                           MainInsured mainInsured, Payee payee, String extJson) {
+                                  String applicantName, Applicant applicant, AccidentPerson accidentPerson,
+                                  MainInsured mainInsured, Payee payee, String extJson) {
 }

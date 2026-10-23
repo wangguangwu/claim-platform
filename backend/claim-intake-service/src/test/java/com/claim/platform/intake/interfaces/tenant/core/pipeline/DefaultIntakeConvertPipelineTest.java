@@ -32,8 +32,10 @@ import com.claim.platform.intake.interfaces.tenant.support.SupportTenantTestData
 import com.claim.platform.intake.interfaces.web.exception.TenantContextMissingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.lang.reflect.RecordComponent;
 import java.util.Arrays;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

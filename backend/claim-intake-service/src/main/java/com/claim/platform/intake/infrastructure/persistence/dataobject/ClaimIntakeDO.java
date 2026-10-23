@@ -23,11 +23,16 @@ import lombok.Data;
 @Data
 @TableName(value = "t_claim_intake", autoResultMap = true)
 public class ClaimIntakeDO {
-    @TableId(type = IdType.AUTO) private Long id;
-    @TableField("tenant_code") private String tenantCode;
-    @TableField("sign_no") private String signNo;
-    @TableField("external_apply_no") private String externalApplyNo;
-    @TableField("applicant_name") private String applicantName;
+    @TableId(type = IdType.AUTO)
+    private Long id;
+    @TableField("tenant_code")
+    private String tenantCode;
+    @TableField("sign_no")
+    private String signNo;
+    @TableField("external_apply_no")
+    private String externalApplyNo;
+    @TableField("applicant_name")
+    private String applicantName;
     @TableField(value = "applicant_info", typeHandler = JacksonTypeHandler.class)
     private ApplicantInfoDO applicantInfo;
     @TableField(value = "accident_person_info", typeHandler = JacksonTypeHandler.class)
@@ -36,8 +41,12 @@ public class ClaimIntakeDO {
     private MainInsuredInfoDO mainInsuredInfo;
     @TableField(value = "payee_info", typeHandler = JacksonTypeHandler.class)
     private PayeeInfoDO payeeInfo;
-    @TableField("ext_json") private String extJson;
-    @TableField("intake_status") private IntakeStatus status;
-    @Version private Integer version;
-    @TableField("is_deleted") private boolean deleted;
+    @TableField("ext_json")
+    private String extJson;
+    @TableField("intake_status")
+    private IntakeStatus status;
+    @Version
+    private Integer version;
+    @TableField("is_deleted")
+    private boolean deleted;
 }

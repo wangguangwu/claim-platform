@@ -2,6 +2,7 @@ package com.claim.platform.intake.application.result;
 
 import com.claim.platform.intake.domain.model.IntakeStatus;
 import com.claim.platform.intake.domain.model.IntakeMaterial;
+
 import java.util.List;
 
 /**
@@ -10,5 +11,5 @@ import java.util.List;
  * @author wangguangwu
  */
 public record ClaimIntakeDetailResult(String signNo, String externalApplyNo, String applicantName,
-                                          IntakeStatus status, List<IntakeMaterial> materials) {
+                                      IntakeStatus status, List<IntakeMaterial> materials) {
 }

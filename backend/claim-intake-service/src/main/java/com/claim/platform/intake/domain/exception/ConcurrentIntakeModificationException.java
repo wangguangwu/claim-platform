@@ -6,5 +6,7 @@ package com.claim.platform.intake.domain.exception;
  * @author wangguangwu
  */
 public class ConcurrentIntakeModificationException extends RuntimeException {
-    public ConcurrentIntakeModificationException() { super("签收申请已被并发修改"); }
+    public ConcurrentIntakeModificationException() {
+        super("签收申请已被并发修改");
+    }
 }

@@ -5,5 +5,6 @@ package com.claim.platform.intake.domain.model;
  *
  * @author wangguangwu
  */
-public record IntakeMaterial(String batchNo, Integer sequence, String type, String name, String path, String originalPath) {
+public record IntakeMaterial(String batchNo, Integer sequence, String type, String name, String path,
+                             String originalPath) {
 }

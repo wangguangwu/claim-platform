@@ -6,5 +6,7 @@ package com.claim.platform.intake.interfaces.web.exception;
  * @author wangguangwu
  */
 public class UntrustedCallerException extends RuntimeException {
-    public UntrustedCallerException() { super("调用方未通过内部鉴别"); }
+    public UntrustedCallerException() {
+        super("调用方未通过内部鉴别");
+    }
 }

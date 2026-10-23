@@ -13,7 +13,9 @@ import com.claim.platform.intake.interfaces.web.context.GatewayRequestContextRes
 import com.claim.platform.intake.interfaces.web.exception.TenantContextMissingException;
 import com.claim.platform.intake.interfaces.web.exception.UntrustedCallerException;
 import jakarta.servlet.http.HttpServletRequest;
+
 import java.util.UUID;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -69,7 +71,7 @@ public class ClaimIntakeExceptionHandler {
      */
     @ExceptionHandler(IntakePayloadParseException.class)
     public ResponseEntity<ApiResult<Void>> malformedPayload(IntakePayloadParseException exception,
-                                                             HttpServletRequest request) {
+                                                            HttpServletRequest request) {
         String traceId = traceId(request);
         LOGGER.warn("tenant intake parse failed fieldPath={} traceId={}", exception.fieldPath(), traceId);
         return failure(HttpStatus.BAD_REQUEST, "MALFORMED_REQUEST", "请求报文格式不合法", traceId);
@@ -112,7 +114,7 @@ public class ClaimIntakeExceptionHandler {
      */
     @ExceptionHandler(InvalidIntakeStatusException.class)
     public ResponseEntity<ApiResult<Void>> invalidStatus(InvalidIntakeStatusException exception,
-                                                          HttpServletRequest request) {
+                                                         HttpServletRequest request) {
         return failure(HttpStatus.CONFLICT, "INVALID_INTAKE_STATUS", "当前申请状态不允许该操作", traceId(request));
     }
 
@@ -121,7 +123,7 @@ public class ClaimIntakeExceptionHandler {
      */
     @ExceptionHandler(ConcurrentIntakeModificationException.class)
     public ResponseEntity<ApiResult<Void>> concurrentModification(ConcurrentIntakeModificationException exception,
-                                                                   HttpServletRequest request) {
+                                                                  HttpServletRequest request) {
         return failure(HttpStatus.CONFLICT, "CLAIM_INTAKE_CONCURRENT_MODIFICATION", "签收申请已被并发修改", traceId(request));
     }
 

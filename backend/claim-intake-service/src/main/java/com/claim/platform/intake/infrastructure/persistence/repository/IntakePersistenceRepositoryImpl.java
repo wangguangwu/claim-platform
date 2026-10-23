@@ -15,8 +15,10 @@ import com.claim.platform.intake.infrastructure.persistence.dataobject.Interacti
 import com.claim.platform.intake.infrastructure.persistence.mapper.ClaimIntakeMapper;
 import com.claim.platform.intake.infrastructure.persistence.mapper.IntakeMaterialMapper;
 import com.claim.platform.intake.infrastructure.persistence.mapper.InteractionLogMapper;
+
 import java.util.List;
 import java.util.Optional;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;

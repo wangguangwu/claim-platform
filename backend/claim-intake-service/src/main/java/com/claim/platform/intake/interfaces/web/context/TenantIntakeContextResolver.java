@@ -3,7 +3,9 @@ package com.claim.platform.intake.interfaces.web.context;
 import com.claim.platform.intake.interfaces.tenant.core.context.TenantContext;
 import com.claim.platform.intake.interfaces.web.exception.TenantContextMissingException;
 import jakarta.servlet.http.HttpServletRequest;
+
 import java.util.regex.Pattern;
+
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -32,7 +34,7 @@ public class TenantIntakeContextResolver {
      * @param request 当前 HTTP 请求
      * @return 可信租户上下文
      * @throws TenantContextMissingException 缺少租户或协议版本头
-     * @throws IllegalArgumentException 协议版本头格式非法
+     * @throws IllegalArgumentException      协议版本头格式非法
      */
     public TenantContext resolve(HttpServletRequest request) {
         GatewayRequestContext gatewayContext = gatewayContextResolver.resolve(request);
