@@ -13,9 +13,9 @@ claim-platform/
 │   ├── claim-case-delivery/   # Case Delivery：案件推送限界上下文
 │   └── claim-common/          # 无领域规则的共享技术能力与稳定契约
 ├── docker/                    # Dockerfile、Compose 与本地容器资源
-├── specs/                     # 项目根约束和功能变更 Spec
-├── standards/                 # DDD、代码、Spec、提交等工程规范
-├── AGENTS.md                  # Agent 规则路由与执行门禁
+├── specs/                     # 根约束与历史功能证据
+├── standards/                 # DDD、语言、前端、错误处理与提交规范
+├── AGENTS.md                  # Agent 执行规则
 └── README.md                  # 项目入口与治理导航
 ```
 
@@ -31,14 +31,13 @@ claim-platform/
 | 文件或目录 | 职责 | 是否作为实现依据 |
 | --- | --- | --- |
 | [specs/requirements.md](specs/requirements.md) | 项目稳定业务与架构约束 | 是，优先级最高 |
-| `specs/README.md` | 选择当前活动 Spec 与归档历史证据 | 是，开始功能任务时先读取 |
-| `specs/active/<feature-name>/` | 活动功能的需求、设计、任务和验收证据 | 是，不得与根需求冲突 |
+| `specs/README.md` | `specs/` 目录说明与归档索引 | 否，仅在追溯历史时读取 |
 | `specs/archive/<feature-name>/` | 已完成功能的决策与验证证据 | 否，仅在历史追溯时读取 |
-| [standards/](standards/README.md) | DDD、Spec Coding、语言、前端和提交规范 | 是，按当前任务增量读取 |
-| [AGENTS.md](AGENTS.md) | 指定任务需要读取哪些规范及执行门禁 | 是，作为规则入口 |
+| [standards/](standards/README.md) | DDD、语言、前端、错误处理和 Git 规范 | 是，按当前任务增量读取 |
+| [AGENTS.md](AGENTS.md) | 任务入口、读取路由与三条硬性检查 | 是，作为规则入口 |
 | `README.md` | 项目导航和技术基线 | 否 |
 
-新增、修改、重构或修复功能时，先阅读根需求及对应功能 Spec，再按 [AGENTS.md](AGENTS.md) 的路由加载相关规范。不要为简单任务加载无关规范，也不要以 README 替代 Spec 或标准。
+功能需求来自当前任务本身，不再要求先建立功能 Spec；改动涉及业务边界、跨上下文契约或根约束时，先读 [specs/requirements.md](specs/requirements.md) 并按 [AGENTS.md](AGENTS.md) 加载命中的规范。不要为简单任务加载无关规范，也不要以 README 替代需求或标准。
 
 ## 构建校验
 

@@ -1,69 +1,19 @@
 # Agent 执行规则
 
-## 文档职责
+## 怎么干活
 
-- `AGENTS.md`：决定当前任务读什么，以及何时可以进入下一阶段。
-- `specs/README.md`：定位当前活动 Spec；归档 Spec 仅在追溯历史决策时读取。
-- 当前活动 Spec：定义当前任务做什么、为什么做和如何验收。
-- `standards/*.md`：定义所选实现动作如何执行。
+- 需求来自当前对话，验收靠编译与测试。不为功能新建 Spec 目录，不写需求/设计/任务三件套、追踪矩阵和逐任务证据回写。
+- 稳定业务与架构约束以 `specs/requirements.md` 为准；与本文件冲突时以根需求为准，并把冲突说清楚，不猜业务规则。
+- `specs/archive/` 只在追溯历史决策时读取，不参与日常开发上下文。
+- 只读取命中当前改动的专项规范：`standards/java.md`、`standards/ddd.md`、`standards/frontend.md`、`standards/error-handling.md`、`standards/git.md`。
 
-除本文件和当前任务命中的文档外，不为了“完整阅读”加载其他 Spec 或标准。
+## 三条硬性检查
 
-## 规则优先级
+1. 动手前确认工作区不会覆盖或混入用户已有改动（`standards/git.md`）。
+2. 交付前跑通校验：后端 `mvn verify`，前端 `npm run build`；未通过不交付。
+3. 不合并 `main`、不 force push、不自行批准审核。
 
-```text
-specs/requirements.md
-→ 当前活动 Spec
-→ standards/*.md
-→ README.md
-```
+## 确实需要写文档时
 
-- 高优先级规则覆盖低优先级规则；低优先级文件只能补充和细化。
-- 冲突无法按优先级消解时，说明冲突与影响，不得猜测业务规则。
-
-## 上下文选择
-
-| 当前动作 | 必读文档 | 进入下一步前确认 |
-| --- | --- | --- |
-| 不确定应修改哪个功能 | `specs/README.md` | 已选定一个活动 Spec，或已确认需要新建 Spec |
-| 新功能、行为变化、跨上下文/API/事件/Schema/配置/数据所有权变更 | `specs/README.md`、`specs/requirements.md`、当前活动 Spec、`standards/spec-coding.md` | 范围、边界和验收标准明确 |
-| 实施已有 Task | 当前活动 Spec 的 `tasks.md` 与关联需求、设计章节 | 当前 Task、依赖和完成标准明确 |
-| Java 代码或测试 | `standards/java.md` | 适用校验已确定 |
-| 领域模型、应用服务、Repository、事件或跨上下文协作 | `standards/ddd.md`、`standards/java.md` | 分层、所有权和兼容性明确 |
-| Vue、TypeScript、Store、Composable 或前端 API | `standards/frontend.md` | 前端边界与校验明确 |
-| HTTP 响应、错误码、全局异常或异常日志 | `standards/error-handling.md`；Java 服务同时读 `standards/java.md` | 错误契约和安全日志明确 |
-| 判断 Git 操作应读取哪份规范 | `standards/git/README.md` | 已定位到当前操作对应的单一规范 |
-| 检查工作区或切换工作上下文 | `standards/git/workspace.md` | 不会覆盖或混入已有改动 |
-| 创建、选择或同步功能分支 | `standards/git/branch.md` | 分支来源和名称符合约定 |
-| 拉取主线更新或处理 rebase 冲突 | `standards/git/sync.md` | 与目标分支的同步方式明确 |
-| Git Commit | `standards/git/commit.md` | 当前提交只对应一个完成的 Task |
-| 推送功能分支 | `standards/git/push.md` | 仅推送目标功能分支，且不覆盖共享历史 |
-| 请求或处理代码审核 | `standards/git/review.md` | 审核信息与人工确认边界明确 |
-| 合并分支 | `standards/git/merge.md` | 已获得人工审核和合并确认 |
-| 修改本文件、根需求或专项规范 | `standards/README.md` 和被修改目标 | 入口、目录和专项规则一致 |
-
-## 实施门禁
-
-开始生产代码前必须满足：
-
-- 已选定当前活动 Spec；纯重构必须确认不改变业务行为。
-- 当前 Task 及其关联需求、设计和依赖已明确。
-- 当前修改命中的专项规范已经读取。
-- 已按 `standards/git/workspace.md` 确认工作区，不覆盖用户已有改动；涉及分支操作时已读取对应 Git 专项规范。
-- 新功能或影响业务行为的变更已完成 Spec Review；未建立活动 Spec 时不得开始生产代码。
-
-活动 Spec 为 `Draft`、`Blocked` 或缺少必要前置决策时，不得以实现代码绕过门禁。
-
-## Task 闭环
-
-1. 按 `tasks.md` 处理一个当前 Task，不顺带实现其他 Task。
-2. 需求变化先更新 `requirements.md`；设计变化先更新 `design.md`；受影响时同步更新任务并重新 Review。
-3. 实现后执行适用编译、测试或构建校验，回写 Task 的状态和验证证据。
-4. 校验通过后，提交该 Task 的全部相关修改，再开始下一 Task；一个 Commit 不得混入多个 Task。
-5. 无法完成时标记 `Blocked`，记录原因、影响、已尝试措施和解除条件。
-
-## 交付约束
-
-- 新功能目录创建于 `specs/active/<feature-name>/`，名称使用小写 kebab-case，并包含 `requirements.md`、`design.md`、`tasks.md`。
-- 完成且不再需要日常维护的 Spec 迁入 `specs/archive/`；归档不删除决策、任务和测试证据。
-- 每个已完成 Task 的 Commit 必须独立可理解、审查和回滚；不得自动合并到 `main`。
+- 用一份不超过 20 行的简短说明：目标、范围、不做什么、怎么验收。放在功能所在模块目录或提交说明里，不建目录、不做编号回链。
+- 修改跨上下文 API、领域事件、数据库边界、租户模型或根约束时，先更新 `specs/requirements.md` 再动代码。

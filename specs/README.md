@@ -1,32 +1,13 @@
-# Spec 目录与选择器
+# Spec 目录
 
-本文件是功能 Spec 的唯一目录。开始功能任务时，先在此选择一个活动 Spec；未命中时才新建 Spec。归档 Spec 只用于追溯既有业务决策、迁移原因和测试证据，不进入日常开发上下文。
-
-## 目录职责
+2026-10-23 起项目回归 MVP 流程：不再新建功能 Spec，也不再维护活动 Spec 状态表。日常开发依据是 `requirements.md`、当前对话需求和代码与测试本身。
 
 | 位置 | 职责 | 日常是否读取 |
 | --- | --- | --- |
-| `requirements.md` | 项目稳定业务、架构与非功能约束 | 新功能、行为/边界变更或目录未能消除范围疑问时 |
-| `active/<feature-name>/` | 正在实现、评审、发布或受阻的功能 Spec | 仅读取当前选定目录 |
-| `archive/<feature-name>/` | 已完成功能的决策、迁移和验证证据 | 仅在历史追溯或兼容性分析时 |
+| `requirements.md` | 项目稳定业务、架构与非功能约束，权威最高 | 改动涉及业务边界或跨上下文契约时 |
+| `archive/<feature-name>/` | 已完成功能的需求、设计、任务与验证证据 | 仅在历史追溯或兼容性分析时 |
 
-## 状态约定
-
-| 状态 | 含义 | 是否可以开始实现 |
-| --- | --- | --- |
-| `Draft` | 需求、设计或任务尚未完成 | 否 |
-| `Ready` | Spec Review 已通过，等待实施 | 是 |
-| `In Progress` | 正在实施，存在可执行 Task | 是，仅处理当前 Task |
-| `Blocked` | 缺少外部契约、环境或业务决策 | 否，直到解除条件满足 |
-| `In Review` | 实现完成，等待人工评审 | 否，除评审反馈修正 |
-| `Ready for Release` | 本地验证完成，等待发布流程 | 否，除发布问题修正 |
-| `Archived` | 已完成且不再日常维护 | 否，仅读取历史证据 |
-
-## 活动 Spec
-
-无。2026-10-23 清理：原 5 个活动 Spec（`person-model`、`claim-intake-standard-flow`、`tenant-adapter-intake`、`sign-no-generation`、`backend-constants-mybatis-plus`）已删除，其验收证据保留在 git 历史提交 `b1522af` 中。
-
-## 归档 Spec
+## 归档索引
 
 | Spec | 归档原因 |
 | --- | --- |
@@ -35,9 +16,7 @@
 | `archive/claim-intake-ddd-package-refactor/` | 四层包结构迁移已完成 |
 | `archive/claim-intake-idempotency-cache/` | 幂等查询定位缓存能力已完成 |
 
-## 新建与归档规则
+## 规则
 
-- 需要新增功能、关键缺陷修复或边界变更，但活动 Spec 均不匹配时，在 `active/<feature-name>/` 新建三份 Spec；完整规则见 `standards/spec-coding.md`。
-- 不为尚未确认的 Gateway、Case Delivery 或真实租户协议预建空 Spec；获得明确需求或外部契约后再创建。
-- 活动 Spec 的全部 Task 完成、验证证据齐全且不再等待评审或发布时，更新状态为 `Archived` 并迁入 `archive/`。
-- 归档 Spec 被新的功能替代时，在新 Spec 中记录替代关系；不得删除归档证据。
+- 归档内容不修改、不删除；被后续实现替代时，在新代码或提交说明中记录替代关系。
+- 需要书面方案时用一份不超过 20 行的简短说明，不建目录、不做编号回链，具体见 `AGENTS.md`。
