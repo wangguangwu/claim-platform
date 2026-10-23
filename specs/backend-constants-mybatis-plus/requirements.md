@@ -4,7 +4,7 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 状态 | In Progress |
+| 状态 | Implemented（待评审） |
 | 所属限界上下文 | Claim Intake |
 | 模块 | `backend/claim-intake-service`、`backend/claim-common` |
 | 功能分支 | Spec 分支 `docs/backend-constants-mybatis-plus`；实现子分支 `refactor/backend-constants-mybatis-plus`（基于 Spec 分支） |

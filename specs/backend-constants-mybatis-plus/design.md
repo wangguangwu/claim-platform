@@ -4,7 +4,7 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 状态 | In Progress |
+| 状态 | Implemented（待评审） |
 | 关联需求 | `specs/backend-constants-mybatis-plus/requirements.md` |
 | 所属限界上下文 | Claim Intake |
 | 模块 | `backend/claim-intake-service`、`backend/claim-common` |
@@ -164,15 +164,17 @@ public final class ClaimIntakeWebContract {
 
     public static final class Limits {
         public static final int IDEMPOTENCY_KEY_LENGTH = 64;
+        public static final int APPLICANT_NAME_LENGTH = 64;
         public static final int SIGN_NO_LENGTH = 64;
+        public static final int BATCH_NO_LENGTH = 64;
         public static final int MATERIAL_TYPE_LENGTH = 32;
         public static final int MATERIAL_NAME_LENGTH = 255;
         public static final int MATERIAL_PATH_LENGTH = 1000;
     }
 
     public static final class Patterns {
-        public static final String TENANT_CODE = "[A-Za-z0-9_-]{1,64}";
-        public static final String PROTOCOL_VERSION = "[A-Za-z0-9._-]{1,32}";
+        public static final Pattern TENANT_CODE = Pattern.compile("[A-Za-z0-9_-]{1,64}");
+        public static final Pattern PROTOCOL_VERSION = Pattern.compile("[A-Za-z0-9._-]{1,32}");
     }
 }
 ```
@@ -182,7 +184,7 @@ public final class ClaimIntakeWebContract {
 - `GatewayRequestContextResolver`、`TenantIntakeContextResolver`、`TraceLoggingInterceptor` 使用头常量；
 - 控制器使用路径常量；
 - `CreateIntakeRequest`、`UploadMaterialsRequest` 使用长度常量；
-- 租户与协议版本正则使用模式常量；协议版本预编译 `Pattern` 保留在解析器中。
+- 租户与协议版本正则预编译为不可变 `Pattern` 常量，解析器直接调用 `matcher`，避免每次请求重复编译。
 
 错误映射新增枚举：
 
@@ -212,16 +214,18 @@ public enum IntakeErrorCode {
 
 新增 `application/service/IntakeMetricConstants`，集中：
 
-- 提交指标：`claim.intake.submission`；
+- 提交与幂等指标：`claim.intake.submission`、`claim.intake.submission.replay-cache`、`claim.intake.submission.lock`；
 - 发号指标：`claim.intake.number.allocation`、`fallback`、`recovery`、`conflict`、`sequence_gap`；
-- 标签键：`source`、`result`、`trigger`、`type`、`scope`；
-- 结果值：`success`、`skipped`、`failure`、`allocated`、`recovered`、`exhausted`、`unavailable`、`conflict`；
+- 标签键：`source`、`result`、`trigger`、`type`、`scope`、`operation`；
+- 操作值：`read`、`write`、`evict`；
+- 结果值：`success`、`skipped`、`failure`、`allocated`、`recovered`、`exhausted`、`unavailable`、`conflict`、`created`、`replayed_quick`、`replayed_locked`、`replayed_conflict`、`lock_timeout`、`lock_degraded`、`error`、`hit`、`miss`、`acquired`、`timeout`；
 - 冲突类型：`sign_no`、`external_apply_no`；
+- 幂等层级：`quick-query`、`locked-double-check`、`unique-conflict`；
 - 校准作用域：`current`、`previous`。
 
-`SignNoMetrics`、`SignNoAllocationService`、`SignNoReconciliationScheduler`、`ClaimIntakeCommandService` 统一引用上述常量。指标名称、标签键、标签值不得变化。
+`SignNoMetrics`、`SignNoAllocationService`、`SignNoReconciliationScheduler`、`ClaimIntakeCommandService`、`RedisIntakeSubmissionReplayCache`、`RedissonIntakeSubmissionLock` 统一引用上述常量。指标名称、标签键、标签值不得变化。
 
-Redis/缓存常量：
+Redis/缓存常量集中在 `infrastructure/cache/RedisCacheConstants`：
 
 | 常量 | 值 | 使用方 |
 | --- | --- | --- |
@@ -233,10 +237,17 @@ Redis/缓存常量：
 | `INVALID_MARKER` | `-2` | 同上 |
 | `RECONCILE_ALLOCATE_RESULT_SIZE` | `3` | 同上 |
 | `RECONCILE_RESULT_SIZE` | `2` | 同上 |
+| `RECONCILE_ALLOCATE_SEQUENCE_INDEX` | `0` | 同上 |
+| `RECONCILE_ALLOCATE_BEFORE_INDEX` | `1` | 同上 |
+| `RECONCILE_ALLOCATE_AFTER_INDEX` | `2` | 同上 |
+| `RECONCILE_BEFORE_INDEX` | `0` | 同上 |
+| `RECONCILE_AFTER_INDEX` | `1` | 同上 |
 | `RECONCILE_LOCK_SEGMENT` | `reconcile-lock:` | `RedissonSignNoRecoveryLock` |
 | `DATE_KEY_FORMATTER` | `BASIC_ISO_DATE` | 计数器与恢复锁 |
 | `SHA_256` | `SHA-256` | 幂等缓存与业务锁 |
 | `KEY_SEPARATOR` | `\n` | 幂等缓存与业务锁 |
+
+脚本结果通过命名下标读取，不再出现 `result.get(0)` 等魔法下标。
 
 ## DS-CMP-007 领域与重试常量
 
