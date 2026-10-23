@@ -11,6 +11,8 @@
 
 当前进度：TK-CISF-002 至 TK-CISF-009、TK-CISF-011 已完成；Redisson watchdog 续期和代码规范复核已通过全量构建。Gateway 鉴权、租户识别、限流和协议版本透传仍未实现，TK-CISF-010 保持 Blocked，端到端验证缺口记录在已知限制中。
 
+> 编号生成变更：本文件 TK-CISF-005、TK-CISF-007、TK-CISF-008 中关于 `SignNoGenerator`、`SIGN` 格式和单次编号重试的完成证据，仅记录当时实现；现行发号规则以 `specs/sign-no-generation/` 为准。
+
 ## 任务清单
 
 | 任务 | 关联需求与设计 | 状态 | 依赖 | 完成证据或阻塞原因 |

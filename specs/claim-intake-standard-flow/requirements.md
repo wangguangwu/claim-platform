@@ -12,6 +12,8 @@
 | 关联 Spec | `specs/application-intake/`、`specs/tenant-adapter-intake/` |
 | 本次交付 | 标准签收命令、三级幂等、Redisson 业务锁、事务边界、材料与交互日志原子写入、错误映射、指标与测试 |
 
+> 编号生成变更：签收号格式、发号方式和碰撞重试策略已由 `specs/sign-no-generation/` 取代。本文件的 FR-CISF-005、FR-CISF-009、FR-CISF-017 中与编号格式、重试次数和“数据库 Schema 不变”相关的描述，以及“非范围”中“不新增或修改数据库 Schema”的描述，以新 Spec 为准；`signNo` 字段名保持不变。
+
 ## 范围
 
 本功能定义理赔申请签收的标准流程：在 Gateway 完成鉴权、租户识别和限流后，Claim Intake 从可信租户上下文接收标准签收命令，完成组件路由、报文转换、幂等回放和持久化。

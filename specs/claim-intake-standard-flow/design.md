@@ -9,6 +9,8 @@
 | 所属限界上下文 | Claim Intake |
 | 模块 | `backend/claim-intake-service` |
 
+> 编号生成变更：本文件 DS-CISF-003、DS-CISF-004 中的 `SignNoGenerator`、`SIGN` + 20 位十六进制格式、单次编号碰撞重试，以及 DS-CISF-010 中“不新增索引”的描述，已由 `specs/sign-no-generation/` 取代；发号实现以新 Spec 为准。
+
 ## DS-CISF-001 职责边界与总体流程
 
 本设计把用户给出的标准签收时序落到现有分层：Gateway 和服务入口负责可信上下文，租户组件包负责协议转换，Application 负责标准用例、幂等和事务，Infrastructure 负责 Redisson 和 MySQL。
