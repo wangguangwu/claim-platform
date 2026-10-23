@@ -27,7 +27,7 @@
     </appender>
 
     <!-- 本应用包开启 DEBUG，便于排查 Person 转换链路；第三方依赖维持 INFO -->
-    <logger name="com.claim.platform.intake" level="DEBUG"/>
+    <logger name="com.claim.platform.sign" level="DEBUG"/>
 
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>
