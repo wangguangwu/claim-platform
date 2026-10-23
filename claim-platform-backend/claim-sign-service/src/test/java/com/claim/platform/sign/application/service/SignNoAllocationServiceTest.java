@@ -20,7 +20,7 @@ import com.claim.platform.sign.application.result.SignNoReconcileAllocationOutco
 import com.claim.platform.sign.application.result.SignNoReconciliationResult;
 import com.claim.platform.sign.application.result.SignNoRecoveryTrigger;
 import com.claim.platform.sign.application.result.SignNoSource;
-import com.claim.platform.sign.domain.model.SignNoFormat;
+import com.claim.platform.sign.domain.model.SignNo;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
@@ -75,7 +75,7 @@ class SignNoAllocationServiceTest {
 
         SignNoAllocation allocation = allocationService.next();
 
-        assertThat(allocation.signNo()).isEqualTo(SignNoFormat.format(BUSINESS_DATE, 7));
+        assertThat(allocation.signNo()).isEqualTo(SignNo.format(BUSINESS_DATE, 7));
         assertThat(allocation.source()).isEqualTo(SignNoSource.REDIS);
         assertThat(allocationCount("redis", "allocated")).isEqualTo(1.0);
         verifyNoInteractions(fallbackAllocator, reconciliationService);
@@ -88,7 +88,7 @@ class SignNoAllocationServiceTest {
 
         SignNoAllocation allocation = allocationService.next();
 
-        assertThat(allocation.signNo()).isEqualTo(SignNoFormat.format(BUSINESS_DATE, 5));
+        assertThat(allocation.signNo()).isEqualTo(SignNo.format(BUSINESS_DATE, 5));
         assertThat(allocation.source()).isEqualTo(SignNoSource.MYSQL_FALLBACK);
         assertThat(fallbackCount("success")).isEqualTo(1.0);
         assertThat(allocationCount("mysql_fallback", "allocated")).isEqualTo(1.0);
@@ -115,7 +115,7 @@ class SignNoAllocationServiceTest {
 
         SignNoAllocation allocation = allocationService.next();
 
-        assertThat(allocation.signNo()).isEqualTo(SignNoFormat.format(BUSINESS_DATE, 9));
+        assertThat(allocation.signNo()).isEqualTo(SignNo.format(BUSINESS_DATE, 9));
         assertThat(allocation.source()).isEqualTo(SignNoSource.REDIS);
         assertThat(recoveryCount("missing_counter", "success")).isEqualTo(1.0);
         assertThat(allocationCount("redis", "recovered")).isEqualTo(1.0);
@@ -132,7 +132,7 @@ class SignNoAllocationServiceTest {
 
         SignNoAllocation allocation = allocationService.next();
 
-        assertThat(allocation.signNo()).isEqualTo(SignNoFormat.format(BUSINESS_DATE, 3));
+        assertThat(allocation.signNo()).isEqualTo(SignNo.format(BUSINESS_DATE, 3));
         assertThat(recoveryCount("invalid_counter", "success")).isEqualTo(1.0);
         assertThat(allocationCount("redis", "recovered")).isEqualTo(1.0);
     }
@@ -182,7 +182,7 @@ class SignNoAllocationServiceTest {
 
         SignNoAllocation allocation = allocationService.next();
 
-        assertThat(allocation.signNo()).isEqualTo(SignNoFormat.format(BUSINESS_DATE, 6));
+        assertThat(allocation.signNo()).isEqualTo(SignNo.format(BUSINESS_DATE, 6));
         assertThat(allocation.source()).isEqualTo(SignNoSource.REDIS);
         assertThat(recoveryCount("missing_counter", "success")).isEqualTo(1.0);
         verify(modeCoordinator, never()).markRedisUnavailable();
@@ -239,7 +239,7 @@ class SignNoAllocationServiceTest {
     void shouldRejectRedisSequenceAboveUpperBound() {
         given(modeCoordinator.isRedisReady()).willReturn(true);
         given(counter.tryIncrement(BUSINESS_DATE))
-                .willReturn(new SignNoIncrementResult.Allocated(SignNoFormat.MAX_SEQUENCE + 1));
+                .willReturn(new SignNoIncrementResult.Allocated(SignNo.MAX_SEQUENCE + 1));
 
         assertThatThrownBy(() -> allocationService.next())
                 .isInstanceOf(SignNoSequenceExhaustedException.class);

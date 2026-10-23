@@ -13,7 +13,7 @@ import com.claim.platform.sign.application.result.SignNoReconcileAllocationOutco
 import com.claim.platform.sign.application.result.SignNoReconciliationResult;
 import com.claim.platform.sign.application.result.SignNoRecoveryTrigger;
 import com.claim.platform.sign.application.result.SignNoSource;
-import com.claim.platform.sign.domain.model.SignNoFormat;
+import com.claim.platform.sign.domain.model.SignNo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -64,11 +64,11 @@ public class SignNoAllocationService {
         SignNoReconciliationResult result =
                 reconciliationService.reconcile(businessDate, SignNoRecoveryTrigger.UNIQUE_CONFLICT);
         if (result.status() == ReconciliationStatus.SUCCESS) {
-            metrics.recordRecovery(SignNoRecoveryTrigger.UNIQUE_CONFLICT, IntakeMetricConstants.RESULT_SUCCESS);
+            metrics.recordRecovery(SignNoRecoveryTrigger.UNIQUE_CONFLICT, SignMetricConstants.RESULT_SUCCESS);
         } else if (result.status() == ReconciliationStatus.SKIPPED) {
-            metrics.recordRecovery(SignNoRecoveryTrigger.UNIQUE_CONFLICT, IntakeMetricConstants.RESULT_SKIPPED);
+            metrics.recordRecovery(SignNoRecoveryTrigger.UNIQUE_CONFLICT, SignMetricConstants.RESULT_SKIPPED);
         } else {
-            metrics.recordRecovery(SignNoRecoveryTrigger.UNIQUE_CONFLICT, IntakeMetricConstants.RESULT_FAILURE);
+            metrics.recordRecovery(SignNoRecoveryTrigger.UNIQUE_CONFLICT, SignMetricConstants.RESULT_FAILURE);
         }
         if (result.failureReason() != null && result.failureReason().isRedisSide()) {
             modeCoordinator.markRedisUnavailable();
@@ -81,7 +81,7 @@ public class SignNoAllocationService {
             SignNoIncrementResult result = counter.tryIncrement(businessDate);
             if (result instanceof SignNoIncrementResult.Allocated allocated) {
                 SignNoAllocation allocation = toAllocation(businessDate, allocated.sequence(), SignNoSource.REDIS);
-                metrics.recordAllocation(SignNoSource.REDIS, IntakeMetricConstants.RESULT_ALLOCATED);
+                metrics.recordAllocation(SignNoSource.REDIS, SignMetricConstants.RESULT_ALLOCATED);
                 return allocation;
             }
             trigger = result instanceof SignNoIncrementResult.Missing
@@ -90,12 +90,12 @@ public class SignNoAllocationService {
             SignNoReconcileAllocationOutcome outcome =
                     reconciliationService.reconcileAndAllocate(businessDate, trigger);
             SignNoAllocation allocation = toAllocation(businessDate, outcome.sequence(), SignNoSource.REDIS);
-            metrics.recordRecovery(trigger, IntakeMetricConstants.RESULT_SUCCESS);
-            metrics.recordAllocation(SignNoSource.REDIS, IntakeMetricConstants.RESULT_RECOVERED);
+            metrics.recordRecovery(trigger, SignMetricConstants.RESULT_SUCCESS);
+            metrics.recordAllocation(SignNoSource.REDIS, SignMetricConstants.RESULT_RECOVERED);
             return allocation;
         } catch (SignNoSequenceExhaustedException exception) {
-            metrics.recordAllocation(SignNoSource.REDIS, IntakeMetricConstants.RESULT_EXHAUSTED);
-            log.error("claim intake sign no exhausted date={} source={}", businessDate, SignNoSource.REDIS);
+            metrics.recordAllocation(SignNoSource.REDIS, SignMetricConstants.RESULT_EXHAUSTED);
+            log.error("claim sign no exhausted date={} source={}", businessDate, SignNoSource.REDIS);
             throw exception;
         } catch (SignNoUnavailableException exception) {
             if (trigger != null && exception.reason() == SignNoUnavailableReason.RECOVERY_LOCK_TIMEOUT) {
@@ -105,10 +105,10 @@ public class SignNoAllocationService {
                 }
             }
             if (trigger != null) {
-                metrics.recordRecovery(trigger, IntakeMetricConstants.RESULT_FAILURE);
+                metrics.recordRecovery(trigger, SignMetricConstants.RESULT_FAILURE);
             }
-            metrics.recordAllocation(SignNoSource.REDIS, IntakeMetricConstants.RESULT_UNAVAILABLE);
-            log.warn("claim intake sign no redis allocation failed date={} reason={}", businessDate,
+            metrics.recordAllocation(SignNoSource.REDIS, SignMetricConstants.RESULT_UNAVAILABLE);
+            log.warn("claim sign no redis allocation failed date={} reason={}", businessDate,
                     exception.reason());
             if (exception.reason().isRedisSide()) {
                 modeCoordinator.markRedisUnavailable();
@@ -123,8 +123,8 @@ public class SignNoAllocationService {
             SignNoIncrementResult retry = counter.tryIncrement(businessDate);
             if (retry instanceof SignNoIncrementResult.Allocated allocated) {
                 SignNoAllocation allocation = toAllocation(businessDate, allocated.sequence(), SignNoSource.REDIS);
-                metrics.recordRecovery(trigger, IntakeMetricConstants.RESULT_SUCCESS);
-                metrics.recordAllocation(SignNoSource.REDIS, IntakeMetricConstants.RESULT_RECOVERED);
+                metrics.recordRecovery(trigger, SignMetricConstants.RESULT_SUCCESS);
+                metrics.recordAllocation(SignNoSource.REDIS, SignMetricConstants.RESULT_RECOVERED);
                 return allocation;
             }
             return null;
@@ -143,33 +143,33 @@ public class SignNoAllocationService {
         try {
             long sequence = fallbackAllocator.nextSequence(businessDate);
             SignNoAllocation allocation = toAllocation(businessDate, sequence, SignNoSource.MYSQL_FALLBACK);
-            metrics.recordFallback(IntakeMetricConstants.RESULT_SUCCESS);
-            metrics.recordAllocation(SignNoSource.MYSQL_FALLBACK, IntakeMetricConstants.RESULT_ALLOCATED);
-            log.info("claim intake sign no fallback allocated date={} sequence={}", businessDate, sequence);
+            metrics.recordFallback(SignMetricConstants.RESULT_SUCCESS);
+            metrics.recordAllocation(SignNoSource.MYSQL_FALLBACK, SignMetricConstants.RESULT_ALLOCATED);
+            log.info("claim sign no fallback allocated date={} sequence={}", businessDate, sequence);
             return allocation;
         } catch (SignNoSequenceExhaustedException exception) {
-            metrics.recordFallback(IntakeMetricConstants.RESULT_EXHAUSTED);
-            metrics.recordAllocation(SignNoSource.MYSQL_FALLBACK, IntakeMetricConstants.RESULT_EXHAUSTED);
-            log.error("claim intake sign no exhausted date={} source={}", businessDate,
+            metrics.recordFallback(SignMetricConstants.RESULT_EXHAUSTED);
+            metrics.recordAllocation(SignNoSource.MYSQL_FALLBACK, SignMetricConstants.RESULT_EXHAUSTED);
+            log.error("claim sign no exhausted date={} source={}", businessDate,
                     SignNoSource.MYSQL_FALLBACK);
             throw exception;
         } catch (SignNoUnavailableException exception) {
-            metrics.recordFallback(IntakeMetricConstants.RESULT_UNAVAILABLE);
-            metrics.recordAllocation(SignNoSource.MYSQL_FALLBACK, IntakeMetricConstants.RESULT_UNAVAILABLE);
+            metrics.recordFallback(SignMetricConstants.RESULT_UNAVAILABLE);
+            metrics.recordAllocation(SignNoSource.MYSQL_FALLBACK, SignMetricConstants.RESULT_UNAVAILABLE);
             throw exception;
         }
     }
 
     private SignNoAllocation toAllocation(LocalDate businessDate, long sequence, SignNoSource source) {
-        if (sequence > SignNoFormat.MAX_SEQUENCE) {
+        if (sequence > SignNo.MAX_SEQUENCE) {
             throw new SignNoSequenceExhaustedException();
         }
-        if (sequence < SignNoFormat.MIN_SEQUENCE) {
+        if (sequence < SignNo.MIN_SEQUENCE) {
             SignNoUnavailableReason reason = source == SignNoSource.REDIS
                     ? SignNoUnavailableReason.REDIS_UNAVAILABLE
                     : SignNoUnavailableReason.FALLBACK_UNAVAILABLE;
             throw new SignNoUnavailableException(reason);
         }
-        return new SignNoAllocation(SignNoFormat.format(businessDate, sequence), source);
+        return new SignNoAllocation(SignNo.format(businessDate, sequence), source);
     }
 }

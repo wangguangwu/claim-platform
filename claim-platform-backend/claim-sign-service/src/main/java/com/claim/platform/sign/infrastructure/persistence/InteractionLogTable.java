@@ -1,7 +1,7 @@
 package com.claim.platform.sign.infrastructure.persistence;
 
 /**
- * 定义 Claim Intake 交互审计表的表名和列名，供 MyBatis-Plus 数据对象共同使用。
+ * 定义理赔签收交互审计表的表名和列名，供 MyBatis-Plus 数据对象共同使用。
  *
  * @author wangguangwu
  */

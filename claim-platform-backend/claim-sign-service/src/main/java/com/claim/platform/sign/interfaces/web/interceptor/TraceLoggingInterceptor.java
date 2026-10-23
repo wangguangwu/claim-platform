@@ -1,6 +1,6 @@
 package com.claim.platform.sign.interfaces.web.interceptor;
 
-import com.claim.platform.sign.interfaces.web.ClaimIntakeWebContract;
+import com.claim.platform.sign.interfaces.web.SignWebContract;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.MDC;
@@ -27,11 +27,11 @@ public class TraceLoggingInterceptor implements HandlerInterceptor {
      */
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-        String traceId = request.getHeader(ClaimIntakeWebContract.Headers.TRACE_ID);
+        String traceId = request.getHeader(SignWebContract.Headers.TRACE_ID);
         if (traceId != null && !traceId.isBlank()) {
             MDC.put(MDC_TRACE_ID, traceId);
         }
-        String tenantCode = request.getHeader(ClaimIntakeWebContract.Headers.TENANT);
+        String tenantCode = request.getHeader(SignWebContract.Headers.TENANT);
         if (tenantCode != null && !tenantCode.isBlank()) {
             MDC.put(MDC_TENANT_CODE, tenantCode);
         }

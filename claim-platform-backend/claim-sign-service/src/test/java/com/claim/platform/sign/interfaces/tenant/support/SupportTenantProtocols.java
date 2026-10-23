@@ -1,8 +1,8 @@
 package com.claim.platform.sign.interfaces.tenant.support;
 
 import com.claim.platform.sign.interfaces.tenant.core.parser.DefaultJsonParser;
-import com.claim.platform.sign.interfaces.tenant.core.registry.TenantProtocolHandler;
-import com.claim.platform.sign.interfaces.tenant.core.registry.TenantProtocolHandlerRegistry;
+import com.claim.platform.sign.interfaces.tenant.core.registry.TenantProtocolAdapter;
+import com.claim.platform.sign.interfaces.tenant.core.registry.TenantProtocolAdapterRegistry;
 import com.claim.platform.sign.interfaces.tenant.core.registry.TenantProtocolKey;
 import com.claim.platform.sign.interfaces.tenant.core.validator.DefaultRequestValidator;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,19 +23,19 @@ public final class SupportTenantProtocols {
     private SupportTenantProtocols() {
     }
 
-    public static SupportTenantProtocolHandler handler(ObjectMapper objectMapper, TenantProtocolKey key) {
-        return new SupportTenantProtocolHandler(key,
-                new DefaultJsonParser<>(objectMapper, SupportTenantIntakePayload.class),
+    public static SupportTenantProtocolAdapter handler(ObjectMapper objectMapper, TenantProtocolKey key) {
+        return new SupportTenantProtocolAdapter(key,
+                new DefaultJsonParser<>(objectMapper, SupportTenantSignPayload.class),
                 new SupportTenantRequestValidator(new DefaultRequestValidator<>(VALIDATOR)),
                 new SupportTenantRequestConverter(objectMapper));
     }
 
-    public static SupportTenantProtocolHandler v1(ObjectMapper objectMapper) {
+    public static SupportTenantProtocolAdapter v1(ObjectMapper objectMapper) {
         return handler(objectMapper, new TenantProtocolKey(
                 SupportTenantTestData.TENANT_CODE, SupportTenantTestData.PROTOCOL_VERSION));
     }
 
-    public static TenantProtocolHandlerRegistry registry(TenantProtocolHandler<?>... handlers) {
-        return new TenantProtocolHandlerRegistry(List.of(handlers));
+    public static TenantProtocolAdapterRegistry registry(TenantProtocolAdapter<?>... handlers) {
+        return new TenantProtocolAdapterRegistry(List.of(handlers));
     }
 }

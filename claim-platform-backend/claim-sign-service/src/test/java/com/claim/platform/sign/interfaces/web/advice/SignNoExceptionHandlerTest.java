@@ -23,7 +23,7 @@ class SignNoExceptionHandlerTest {
 
     private static final String TRACE_ID = "trace-sign-no";
 
-    private final ClaimIntakeExceptionHandler handler = new ClaimIntakeExceptionHandler();
+    private final SignExceptionHandler handler = new SignExceptionHandler();
 
     @Test
     void shouldMapUnavailableToServiceUnavailableWithRetryAfter() {

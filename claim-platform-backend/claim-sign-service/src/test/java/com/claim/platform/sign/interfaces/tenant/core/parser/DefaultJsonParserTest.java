@@ -6,8 +6,8 @@ import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
-import com.claim.platform.sign.interfaces.tenant.core.exception.IntakePayloadParseException;
-import com.claim.platform.sign.interfaces.tenant.support.SupportTenantIntakePayload;
+import com.claim.platform.sign.interfaces.tenant.core.exception.SignPayloadParseException;
+import com.claim.platform.sign.interfaces.tenant.support.SupportTenantSignPayload;
 import com.claim.platform.sign.interfaces.tenant.support.SupportTenantTestData;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,12 +21,12 @@ import org.slf4j.LoggerFactory;
  */
 class DefaultJsonParserTest {
 
-    private final DefaultJsonParser<SupportTenantIntakePayload> parser =
-            new DefaultJsonParser<>(new ObjectMapper(), SupportTenantIntakePayload.class);
+    private final DefaultJsonParser<SupportTenantSignPayload> parser =
+            new DefaultJsonParser<>(new ObjectMapper(), SupportTenantSignPayload.class);
 
     @Test
     void shouldParseValidJsonIntoTenantDto() {
-        SupportTenantIntakePayload payload = parser.parse(SupportTenantTestData.VALID_PAYLOAD);
+        SupportTenantSignPayload payload = parser.parse(SupportTenantTestData.VALID_PAYLOAD);
 
         assertThat(payload.externalApplyNo()).isEqualTo("EXT-001");
         assertThat(payload.accidentDate()).isEqualTo("2026-10-01");
@@ -40,8 +40,8 @@ class DefaultJsonParserTest {
                 {"externalApplyNo":"EXT-001","applicant":{"certificateNo":"%s","mobile":"%s"
                 """.formatted(SupportTenantTestData.CERTIFICATE_NO, SupportTenantTestData.MOBILE);
 
-        IntakePayloadParseException exception = catchThrowableOfType(
-                () -> parser.parse(malformed), IntakePayloadParseException.class);
+        SignPayloadParseException exception = catchThrowableOfType(
+                () -> parser.parse(malformed), SignPayloadParseException.class);
 
         assertThat(exception.fieldPath()).isEqualTo("applicant");
         assertThat(exception.getMessage())
@@ -56,8 +56,8 @@ class DefaultJsonParserTest {
                 "\"externalApplyNo\": \"EXT-001\",",
                 "\"externalApplyNo\": \"EXT-001\",\n  \"unknownField\": \"value\",");
 
-        IntakePayloadParseException exception = catchThrowableOfType(
-                () -> parser.parse(payload), IntakePayloadParseException.class);
+        SignPayloadParseException exception = catchThrowableOfType(
+                () -> parser.parse(payload), SignPayloadParseException.class);
 
         assertThat(exception.getMessage()).contains("报文解析失败");
         assertThat(exception.getCause()).isInstanceOf(JsonProcessingException.class);
@@ -68,16 +68,16 @@ class DefaultJsonParserTest {
         String payload = SupportTenantTestData.VALID_PAYLOAD.replace(
                 "\"externalApplyNo\": \"EXT-001\"", "\"externalApplyNo\": {\"bad\": true}");
 
-        IntakePayloadParseException exception = catchThrowableOfType(
-                () -> parser.parse(payload), IntakePayloadParseException.class);
+        SignPayloadParseException exception = catchThrowableOfType(
+                () -> parser.parse(payload), SignPayloadParseException.class);
 
         assertThat(exception.fieldPath()).isEqualTo("externalApplyNo");
     }
 
     @Test
     void shouldRejectEmptyPayload() {
-        IntakePayloadParseException exception = catchThrowableOfType(
-                () -> parser.parse("  "), IntakePayloadParseException.class);
+        SignPayloadParseException exception = catchThrowableOfType(
+                () -> parser.parse("  "), SignPayloadParseException.class);
 
         assertThat(exception.fieldPath()).isEqualTo("payload");
     }
@@ -92,7 +92,7 @@ class DefaultJsonParserTest {
             String malformed = """
                     {"applicant":{"certificateNo":"%s","mobile":"%s"
                     """.formatted(SupportTenantTestData.CERTIFICATE_NO, SupportTenantTestData.MOBILE);
-            catchThrowableOfType(() -> parser.parse(malformed), IntakePayloadParseException.class);
+            catchThrowableOfType(() -> parser.parse(malformed), SignPayloadParseException.class);
         } finally {
             rootLogger.detachAppender(appender);
         }

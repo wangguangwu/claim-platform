@@ -12,7 +12,7 @@ import com.claim.platform.sign.application.result.SignNoReconcileAllocationOutco
 import com.claim.platform.sign.application.result.SignNoReconcileOutcome;
 import com.claim.platform.sign.application.result.SignNoReconciliationResult;
 import com.claim.platform.sign.application.result.SignNoRecoveryTrigger;
-import com.claim.platform.sign.domain.model.SignNoFormat;
+import com.claim.platform.sign.domain.model.SignNo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -45,24 +45,24 @@ public class SignNoReconciliationService {
         try (SignNoRecoveryLockHandle handle = recoveryLock.tryAcquire(businessDate)) {
             requireLock(handle);
             long dbHighWaterMark = highWaterMark.currentMaxSequence(businessDate);
-            if (dbHighWaterMark >= SignNoFormat.MAX_SEQUENCE) {
+            if (dbHighWaterMark >= SignNo.MAX_SEQUENCE) {
                 throw new SignNoSequenceExhaustedException();
             }
             SignNoReconcileAllocationOutcome outcome = counter.reconcileAndIncrement(businessDate, dbHighWaterMark);
-            if (outcome.sequence() > SignNoFormat.MAX_SEQUENCE) {
+            if (outcome.sequence() > SignNo.MAX_SEQUENCE) {
                 throw new SignNoSequenceExhaustedException();
             }
-            log.info("claim intake sign no recovered date={} trigger={} dbMax={} before={} after={} gap={} "
+            log.info("claim sign no recovered date={} trigger={} dbMax={} before={} after={} gap={} "
                             + "sequence={}", businessDate, trigger.code(), dbHighWaterMark,
                     outcome.counterBefore(), outcome.counterAfter(), dbHighWaterMark - outcome.counterBefore(),
                     outcome.sequence());
             return outcome;
         } catch (SignNoUnavailableException exception) {
-            log.error("claim intake sign no recovery failed date={} trigger={} reason={}", businessDate,
+            log.error("claim sign no recovery failed date={} trigger={} reason={}", businessDate,
                     trigger.code(), exception.reason(), exception);
             throw exception;
         } catch (SignNoSequenceExhaustedException exception) {
-            log.error("claim intake sign no exhausted during recovery date={} trigger={}", businessDate,
+            log.error("claim sign no exhausted during recovery date={} trigger={}", businessDate,
                     trigger.code());
             throw exception;
         }
@@ -78,21 +78,21 @@ public class SignNoReconciliationService {
                 SignNoUnavailableReason reason = handle.status() == LockAcquireStatus.TIMEOUT
                         ? SignNoUnavailableReason.RECOVERY_LOCK_TIMEOUT
                         : SignNoUnavailableReason.RECOVERY_LOCK_UNAVAILABLE;
-                log.info("claim intake sign no reconciliation skipped date={} trigger={} reason={}",
+                log.info("claim sign no reconciliation skipped date={} trigger={} reason={}",
                         businessDate, trigger.code(), reason);
                 return SignNoReconciliationResult.skipped(businessDate, reason);
             }
             long dbHighWaterMark = highWaterMark.currentMaxSequence(businessDate);
             SignNoReconcileOutcome outcome = counter.reconcile(businessDate, dbHighWaterMark);
             long gap = dbHighWaterMark - outcome.counterBefore();
-            log.info("claim intake sign no reconciled date={} trigger={} dbMax={} before={} after={} gap={} "
+            log.info("claim sign no reconciled date={} trigger={} dbMax={} before={} after={} gap={} "
                             + "changed={}", businessDate, trigger.code(), dbHighWaterMark,
                     outcome.counterBefore(), outcome.counterAfter(), gap,
                     outcome.counterBefore() != outcome.counterAfter());
             return SignNoReconciliationResult.success(businessDate, dbHighWaterMark,
                     outcome.counterBefore(), outcome.counterAfter());
         } catch (SignNoUnavailableException exception) {
-            log.error("claim intake sign no reconciliation failed date={} trigger={} reason={}", businessDate,
+            log.error("claim sign no reconciliation failed date={} trigger={} reason={}", businessDate,
                     trigger.code(), exception.reason(), exception);
             return SignNoReconciliationResult.failed(businessDate, exception.reason());
         }

@@ -1,6 +1,6 @@
 package com.claim.platform.sign.interfaces.tenant.core.parser;
 
-import com.claim.platform.sign.interfaces.tenant.core.exception.IntakePayloadParseException;
+import com.claim.platform.sign.interfaces.tenant.core.exception.SignPayloadParseException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -31,12 +31,12 @@ public class DefaultJsonParser<T> implements RequestParser<T> {
     @Override
     public T parse(String payload) {
         if (payload == null || payload.isBlank()) {
-            throw new IntakePayloadParseException("payload");
+            throw new SignPayloadParseException("payload");
         }
         try {
             return objectMapper.readValue(payload, payloadType);
         } catch (JsonProcessingException exception) {
-            throw new IntakePayloadParseException(fieldPath(exception), exception);
+            throw new SignPayloadParseException(fieldPath(exception), exception);
         }
     }
 

@@ -8,7 +8,7 @@ import com.claim.platform.sign.application.exception.SignNoSequenceExhaustedExce
 import com.claim.platform.sign.application.exception.SignNoUnavailableException;
 import com.claim.platform.sign.application.exception.SignNoUnavailableReason;
 import com.claim.platform.sign.application.port.SignNoHighWaterMark;
-import com.claim.platform.sign.domain.model.SignNoFormat;
+import com.claim.platform.sign.domain.model.SignNo;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -49,7 +49,7 @@ class MysqlSignNoFallbackAllocatorTest {
     @Test
     void shouldRejectWhenHighWaterMarkReachesUpperBound() {
         given(highWaterMark.currentMaxSequence(BUSINESS_DATE))
-                .willReturn(SignNoFormat.MAX_SEQUENCE);
+                .willReturn(SignNo.MAX_SEQUENCE);
 
         assertThatThrownBy(() -> fallbackAllocator.nextSequence(BUSINESS_DATE))
                 .isInstanceOf(SignNoSequenceExhaustedException.class);

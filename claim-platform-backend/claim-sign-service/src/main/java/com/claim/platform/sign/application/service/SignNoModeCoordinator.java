@@ -24,13 +24,13 @@ public class SignNoModeCoordinator {
 
     public void markRedisReady() {
         if (redisReady.compareAndSet(false, true)) {
-            log.info("claim intake sign no redis mode ready");
+            log.info("claim sign no redis mode ready");
         }
     }
 
     public void markRedisUnavailable() {
         if (redisReady.compareAndSet(true, false)) {
-            log.warn("claim intake sign no redis mode unavailable");
+            log.warn("claim sign no redis mode unavailable");
         }
     }
 }

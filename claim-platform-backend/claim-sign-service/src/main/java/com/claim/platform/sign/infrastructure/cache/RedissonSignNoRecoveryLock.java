@@ -34,16 +34,16 @@ public class RedissonSignNoRecoveryLock implements SignNoRecoveryLock {
         try {
             boolean acquired = lock.tryLock(properties.getRecoveryLockWaitTime().toMillis(), TimeUnit.MILLISECONDS);
             if (!acquired) {
-                log.warn("claim intake sign no recovery lock timeout date={}", businessDate);
+                log.warn("claim sign no recovery lock timeout date={}", businessDate);
                 return new StaticHandle(LockAcquireStatus.TIMEOUT);
             }
             return new AcquiredHandle(lock, businessDate);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            log.warn("claim intake sign no recovery lock interrupted date={}", businessDate);
+            log.warn("claim sign no recovery lock interrupted date={}", businessDate);
             return new StaticHandle(LockAcquireStatus.TIMEOUT);
         } catch (RedisException exception) {
-            log.warn("claim intake sign no recovery lock unavailable date={}", businessDate, exception);
+            log.warn("claim sign no recovery lock unavailable date={}", businessDate, exception);
             return new StaticHandle(LockAcquireStatus.UNAVAILABLE);
         }
     }
@@ -98,10 +98,10 @@ public class RedissonSignNoRecoveryLock implements SignNoRecoveryLock {
                 if (lock.isHeldByCurrentThread()) {
                     lock.unlock();
                 } else {
-                    log.warn("claim intake sign no recovery lock ownership lost date={}", businessDate);
+                    log.warn("claim sign no recovery lock ownership lost date={}", businessDate);
                 }
             } catch (RedisException | IllegalMonitorStateException exception) {
-                log.warn("claim intake sign no recovery lock release failed date={} type={}", businessDate,
+                log.warn("claim sign no recovery lock release failed date={} type={}", businessDate,
                         exception.getClass().getSimpleName(), exception);
             }
         }

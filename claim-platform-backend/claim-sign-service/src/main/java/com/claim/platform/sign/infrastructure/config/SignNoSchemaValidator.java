@@ -1,6 +1,6 @@
 package com.claim.platform.sign.infrastructure.config;
 
-import com.claim.platform.sign.infrastructure.persistence.ClaimIntakeTable;
+import com.claim.platform.sign.infrastructure.persistence.SignTable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
@@ -33,20 +33,20 @@ public class SignNoSchemaValidator implements InitializingBean {
     @Override
     public void afterPropertiesSet() {
         if (!hasUniqueSignNoIndex()) {
-            log.error("claim intake sign no schema validation failed table={} index={}",
-                    ClaimIntakeTable.NAME, ClaimIntakeTable.INDEX_UK_SIGN_NO);
+            log.error("claim sign no schema validation failed table={} index={}",
+                    SignTable.NAME, SignTable.INDEX_UK_SIGN_NO);
             throw new IllegalStateException(
                     "数据库缺少全局唯一索引 uk_sign_no(sign_no)，请先执行存量库迁移脚本");
         }
-        log.info("claim intake sign no schema validated table={} index={}",
-                ClaimIntakeTable.NAME, ClaimIntakeTable.INDEX_UK_SIGN_NO);
+        log.info("claim sign no schema validated table={} index={}",
+                SignTable.NAME, SignTable.INDEX_UK_SIGN_NO);
     }
 
     private boolean hasUniqueSignNoIndex() {
         try (Connection connection = dataSource.getConnection()) {
             DatabaseMetaData metadata = connection.getMetaData();
             try (ResultSet indexes = metadata.getIndexInfo(connection.getCatalog(), null,
-                    ClaimIntakeTable.NAME, true, false)) {
+                    SignTable.NAME, true, false)) {
                 while (indexes.next()) {
                     if (isSignNoLeadingUniqueIndex(indexes)) {
                         return true;
@@ -55,15 +55,15 @@ public class SignNoSchemaValidator implements InitializingBean {
             }
             return false;
         } catch (SQLException exception) {
-            log.error("claim intake sign no schema validation query failed table={} index={}",
-                    ClaimIntakeTable.NAME, ClaimIntakeTable.INDEX_UK_SIGN_NO, exception);
+            log.error("claim sign no schema validation query failed table={} index={}",
+                    SignTable.NAME, SignTable.INDEX_UK_SIGN_NO, exception);
             throw new IllegalStateException("无法校验数据库全局唯一索引 uk_sign_no(sign_no)", exception);
         }
     }
 
     private boolean isSignNoLeadingUniqueIndex(ResultSet indexes) throws SQLException {
         return indexes.getInt(JDBC_ORDINAL_POSITION) == FIRST_COLUMN_POSITION
-                && ClaimIntakeTable.INDEX_UK_SIGN_NO.equalsIgnoreCase(indexes.getString(JDBC_INDEX_NAME))
-                && ClaimIntakeTable.SIGN_NO.equalsIgnoreCase(indexes.getString(JDBC_COLUMN_NAME));
+                && SignTable.INDEX_UK_SIGN_NO.equalsIgnoreCase(indexes.getString(JDBC_INDEX_NAME))
+                && SignTable.SIGN_NO.equalsIgnoreCase(indexes.getString(JDBC_COLUMN_NAME));
     }
 }

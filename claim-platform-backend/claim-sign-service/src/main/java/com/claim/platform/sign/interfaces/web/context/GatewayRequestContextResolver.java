@@ -1,6 +1,6 @@
 package com.claim.platform.sign.interfaces.web.context;
 
-import com.claim.platform.sign.interfaces.web.ClaimIntakeWebContract;
+import com.claim.platform.sign.interfaces.web.SignWebContract;
 import com.claim.platform.sign.interfaces.web.exception.TenantContextMissingException;
 import com.claim.platform.sign.interfaces.web.exception.UntrustedCallerException;
 
@@ -36,17 +36,17 @@ public class GatewayRequestContextResolver {
      * @throws TenantContextMissingException 未提供 Gateway 解析后的租户
      */
     public GatewayRequestContext resolve(HttpServletRequest request) {
-        String providedToken = request.getHeader(ClaimIntakeWebContract.Headers.SERVICE_TOKEN);
+        String providedToken = request.getHeader(SignWebContract.Headers.SERVICE_TOKEN);
         if (!StringUtils.hasText(providedToken) || !MessageDigest.isEqual(serviceToken,
                 providedToken.getBytes(StandardCharsets.UTF_8))) {
             throw new UntrustedCallerException();
         }
-        String tenantCode = request.getHeader(ClaimIntakeWebContract.Headers.TENANT);
+        String tenantCode = request.getHeader(SignWebContract.Headers.TENANT);
         if (!StringUtils.hasText(tenantCode)
-                || !ClaimIntakeWebContract.Patterns.TENANT_CODE.matcher(tenantCode).matches()) {
+                || !SignWebContract.Patterns.TENANT_CODE.matcher(tenantCode).matches()) {
             throw new TenantContextMissingException();
         }
-        String traceId = request.getHeader(ClaimIntakeWebContract.Headers.TRACE_ID);
+        String traceId = request.getHeader(SignWebContract.Headers.TRACE_ID);
         if (!StringUtils.hasText(traceId)) {
             traceId = UUID.randomUUID().toString();
         }

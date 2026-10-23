@@ -3,7 +3,7 @@ package com.claim.platform.sign.application.service;
 import com.claim.platform.sign.application.exception.SignNoSequenceExhaustedException;
 import com.claim.platform.sign.application.port.SignNoFallbackAllocator;
 import com.claim.platform.sign.application.port.SignNoHighWaterMark;
-import com.claim.platform.sign.domain.model.SignNoFormat;
+import com.claim.platform.sign.domain.model.SignNo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -24,7 +24,7 @@ public class MysqlSignNoFallbackAllocator implements SignNoFallbackAllocator {
     @Override
     public long nextSequence(LocalDate businessDate) {
         long dbMax = highWaterMark.currentMaxSequence(businessDate);
-        if (dbMax >= SignNoFormat.MAX_SEQUENCE) {
+        if (dbMax >= SignNo.MAX_SEQUENCE) {
             throw new SignNoSequenceExhaustedException();
         }
         return dbMax + 1;

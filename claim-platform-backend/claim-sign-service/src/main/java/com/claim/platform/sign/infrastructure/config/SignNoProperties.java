@@ -25,7 +25,7 @@ import java.time.ZoneId;
 @Setter
 @Validated
 @Component
-@ConfigurationProperties(prefix = "claim.intake.number")
+@ConfigurationProperties(prefix = "claim.sign.number")
 public class SignNoProperties implements SignNoPolicy {
 
     public static final String DEFAULT_ZONE = "Asia/Shanghai";

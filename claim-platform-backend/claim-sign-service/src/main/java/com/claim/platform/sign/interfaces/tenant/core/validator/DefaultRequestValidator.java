@@ -1,6 +1,6 @@
 package com.claim.platform.sign.interfaces.tenant.core.validator;
 
-import com.claim.platform.sign.interfaces.tenant.core.exception.IntakeRequestValidationException;
+import com.claim.platform.sign.interfaces.tenant.core.exception.SignRequestValidationException;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 
@@ -25,7 +25,7 @@ public class DefaultRequestValidator<T> implements RequestValidator<T> {
     @Override
     public void validate(T request) {
         if (request == null) {
-            throw new IntakeRequestValidationException("request");
+            throw new SignRequestValidationException("request");
         }
         Set<ConstraintViolation<T>> violations = validator.validate(request);
         if (violations.isEmpty()) {
@@ -37,6 +37,6 @@ public class DefaultRequestValidator<T> implements RequestValidator<T> {
                 .sorted()
                 .findFirst()
                 .orElse("request");
-        throw new IntakeRequestValidationException(fieldPath);
+        throw new SignRequestValidationException(fieldPath);
     }
 }

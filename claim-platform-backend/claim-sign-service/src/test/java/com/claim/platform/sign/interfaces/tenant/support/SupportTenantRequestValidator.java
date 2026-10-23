@@ -1,6 +1,6 @@
 package com.claim.platform.sign.interfaces.tenant.support;
 
-import com.claim.platform.sign.interfaces.tenant.core.exception.IntakeRequestValidationException;
+import com.claim.platform.sign.interfaces.tenant.core.exception.SignRequestValidationException;
 import com.claim.platform.sign.interfaces.tenant.core.validator.RequestValidator;
 
 /**
@@ -8,20 +8,20 @@ import com.claim.platform.sign.interfaces.tenant.core.validator.RequestValidator
  *
  * @author wangguangwu
  */
-public class SupportTenantRequestValidator implements RequestValidator<SupportTenantIntakePayload> {
+public class SupportTenantRequestValidator implements RequestValidator<SupportTenantSignPayload> {
 
-    private final RequestValidator<SupportTenantIntakePayload> defaultValidator;
+    private final RequestValidator<SupportTenantSignPayload> defaultValidator;
 
-    public SupportTenantRequestValidator(RequestValidator<SupportTenantIntakePayload> defaultValidator) {
+    public SupportTenantRequestValidator(RequestValidator<SupportTenantSignPayload> defaultValidator) {
         this.defaultValidator = defaultValidator;
     }
 
     @Override
-    public void validate(SupportTenantIntakePayload request) {
+    public void validate(SupportTenantSignPayload request) {
         defaultValidator.validate(request);
         String relationship = request.applicant().relationshipToInsured();
         if (relationship == null || relationship.isBlank()) {
-            throw new IntakeRequestValidationException("applicant.relationshipToInsured");
+            throw new SignRequestValidationException("applicant.relationshipToInsured");
         }
     }
 }

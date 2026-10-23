@@ -6,7 +6,7 @@ import com.claim.platform.sign.application.port.SignNoIncrementResult;
 import com.claim.platform.sign.application.port.SignNoSequenceCounter;
 import com.claim.platform.sign.application.result.SignNoReconcileAllocationOutcome;
 import com.claim.platform.sign.application.result.SignNoReconcileOutcome;
-import com.claim.platform.sign.domain.model.SignNoFormat;
+import com.claim.platform.sign.domain.model.SignNo;
 import com.claim.platform.sign.infrastructure.config.SignNoProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -53,7 +53,7 @@ public class RedisSignNoSequenceCounter implements SignNoSequenceCounter {
         if (result == RedisCacheConstants.INVALID_MARKER) {
             return SignNoIncrementResult.Invalid.INSTANCE;
         }
-        if (result < SignNoFormat.MIN_SEQUENCE) {
+        if (result < SignNo.MIN_SEQUENCE) {
             throw new SignNoUnavailableException(SignNoUnavailableReason.REDIS_UNAVAILABLE);
         }
         return new SignNoIncrementResult.Allocated(result);
@@ -67,14 +67,14 @@ public class RedisSignNoSequenceCounter implements SignNoSequenceCounter {
             result = (List<Object>) redisTemplate.execute(reconcileAndAllocateScript,
                     List.of(counterKey(businessDate)), String.valueOf(dbHighWaterMark), ttlMillis());
         } catch (DataAccessException exception) {
-            log.warn("claim intake sign no counter reconcile and allocate failed date={}", businessDate, exception);
+            log.warn("claim sign no counter reconcile and allocate failed date={}", businessDate, exception);
             throw new SignNoUnavailableException(SignNoUnavailableReason.REDIS_UNAVAILABLE, exception);
         }
         if (result == null || result.size() != RedisCacheConstants.RECONCILE_ALLOCATE_RESULT_SIZE) {
             throw new SignNoUnavailableException(SignNoUnavailableReason.REDIS_UNAVAILABLE);
         }
         long sequence = toLong(result.get(RedisCacheConstants.RECONCILE_ALLOCATE_SEQUENCE_INDEX));
-        if (sequence < SignNoFormat.MIN_SEQUENCE) {
+        if (sequence < SignNo.MIN_SEQUENCE) {
             throw new SignNoUnavailableException(SignNoUnavailableReason.REDIS_UNAVAILABLE);
         }
         return new SignNoReconcileAllocationOutcome(sequence,
@@ -90,7 +90,7 @@ public class RedisSignNoSequenceCounter implements SignNoSequenceCounter {
             result = (List<Object>) redisTemplate.execute(reconcileScript, List.of(counterKey(businessDate)),
                     String.valueOf(dbHighWaterMark), ttlMillis());
         } catch (DataAccessException exception) {
-            log.warn("claim intake sign no counter reconcile failed date={}", businessDate, exception);
+            log.warn("claim sign no counter reconcile failed date={}", businessDate, exception);
             throw new SignNoUnavailableException(SignNoUnavailableReason.REDIS_UNAVAILABLE, exception);
         }
         if (result == null || result.size() != RedisCacheConstants.RECONCILE_RESULT_SIZE) {
@@ -105,7 +105,7 @@ public class RedisSignNoSequenceCounter implements SignNoSequenceCounter {
         try {
             return redisTemplate.execute(script, List.of(key), (Object[]) arguments);
         } catch (DataAccessException exception) {
-            log.warn("claim intake sign no redis command failed", exception);
+            log.warn("claim sign no redis command failed", exception);
             throw new SignNoUnavailableException(SignNoUnavailableReason.REDIS_UNAVAILABLE, exception);
         }
     }

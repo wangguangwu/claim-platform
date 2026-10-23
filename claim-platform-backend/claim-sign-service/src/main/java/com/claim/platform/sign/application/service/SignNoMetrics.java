@@ -28,25 +28,25 @@ public class SignNoMetrics {
     }
 
     public void recordAllocation(SignNoSource source, String result) {
-        meterRegistry.counter(IntakeMetricConstants.SIGN_NO_ALLOCATION_METRIC,
-                IntakeMetricConstants.TAG_SOURCE, source.name().toLowerCase(Locale.ROOT),
-                IntakeMetricConstants.TAG_RESULT, result).increment();
+        meterRegistry.counter(SignMetricConstants.SIGN_NO_ALLOCATION_METRIC,
+                SignMetricConstants.TAG_SOURCE, source.name().toLowerCase(Locale.ROOT),
+                SignMetricConstants.TAG_RESULT, result).increment();
     }
 
     public void recordFallback(String result) {
-        meterRegistry.counter(IntakeMetricConstants.SIGN_NO_FALLBACK_METRIC,
-                IntakeMetricConstants.TAG_RESULT, result).increment();
+        meterRegistry.counter(SignMetricConstants.SIGN_NO_FALLBACK_METRIC,
+                SignMetricConstants.TAG_RESULT, result).increment();
     }
 
     public void recordRecovery(SignNoRecoveryTrigger trigger, String result) {
-        meterRegistry.counter(IntakeMetricConstants.SIGN_NO_RECOVERY_METRIC,
-                IntakeMetricConstants.TAG_TRIGGER, trigger.code(),
-                IntakeMetricConstants.TAG_RESULT, result).increment();
+        meterRegistry.counter(SignMetricConstants.SIGN_NO_RECOVERY_METRIC,
+                SignMetricConstants.TAG_TRIGGER, trigger.code(),
+                SignMetricConstants.TAG_RESULT, result).increment();
     }
 
     public void recordConflict(String type) {
-        meterRegistry.counter(IntakeMetricConstants.SIGN_NO_CONFLICT_METRIC,
-                IntakeMetricConstants.TAG_TYPE, type).increment();
+        meterRegistry.counter(SignMetricConstants.SIGN_NO_CONFLICT_METRIC,
+                SignMetricConstants.TAG_TYPE, type).increment();
     }
 
     /**
@@ -57,8 +57,8 @@ public class SignNoMetrics {
     public void recordSequenceGap(String scope, long gap) {
         sequenceGaps.computeIfAbsent(scope, key -> {
             AtomicLong value = new AtomicLong(-1);
-            Gauge.builder(IntakeMetricConstants.SIGN_NO_SEQUENCE_GAP_METRIC, value, AtomicLong::doubleValue)
-                    .tag(IntakeMetricConstants.TAG_SCOPE, key)
+            Gauge.builder(SignMetricConstants.SIGN_NO_SEQUENCE_GAP_METRIC, value, AtomicLong::doubleValue)
+                    .tag(SignMetricConstants.TAG_SCOPE, key)
                     .register(meterRegistry);
             return value;
         }).set(gap);

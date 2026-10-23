@@ -6,7 +6,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * 配置 Claim Intake 的 MyBatis-Plus 乐观锁拦截器，保护申请状态并发更新。
+ * 配置理赔签收的 MyBatis-Plus 乐观锁拦截器，保护申请状态并发更新。
  *
  * @author wangguangwu
  */

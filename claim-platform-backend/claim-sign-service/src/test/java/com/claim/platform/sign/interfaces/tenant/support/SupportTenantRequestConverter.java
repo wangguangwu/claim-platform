@@ -1,6 +1,6 @@
 package com.claim.platform.sign.interfaces.tenant.support;
 
-import com.claim.platform.sign.application.command.SubmitIntakeCommand;
+import com.claim.platform.sign.application.command.SignCommand;
 import com.claim.platform.sign.domain.model.CertificateType;
 import com.claim.platform.sign.domain.model.person.Applicant;
 import com.claim.platform.sign.interfaces.tenant.core.context.TenantContext;
@@ -18,7 +18,7 @@ import java.util.TreeMap;
  *
  * @author wangguangwu
  */
-public class SupportTenantRequestConverter implements RequestConverter<SupportTenantIntakePayload> {
+public class SupportTenantRequestConverter implements RequestConverter<SupportTenantSignPayload> {
 
     private static final CodeMapper<CertificateType> CERTIFICATE_TYPES = new CodeMapper<>(
             "applicant.certificateType",
@@ -31,17 +31,17 @@ public class SupportTenantRequestConverter implements RequestConverter<SupportTe
     }
 
     @Override
-    public SubmitIntakeCommand convert(SupportTenantIntakePayload request, TenantContext context) {
+    public SignCommand convert(SupportTenantSignPayload request, TenantContext context) {
         SupportTenantApplicantPayload applicant = request.applicant();
         CertificateType certificateType = CERTIFICATE_TYPES.map(applicant.certificateType());
         Applicant domainApplicant = new Applicant(applicant.name(), certificateType.name(),
                 applicant.certificateNo(), applicant.mobile(), applicant.gender(),
                 applicant.birthDate(), applicant.relationshipToInsured());
-        return new SubmitIntakeCommand(context.tenantCode(), context.traceId(), request.externalApplyNo(),
+        return new SignCommand(context.tenantCode(), context.traceId(), request.externalApplyNo(),
                 applicant.name(), domainApplicant, null, null, null, List.of(), extensionJson(request));
     }
 
-    private String extensionJson(SupportTenantIntakePayload request) {
+    private String extensionJson(SupportTenantSignPayload request) {
         Map<String, String> extension = new TreeMap<>();
         extension.put("accidentDate", request.accidentDate());
         if (request.extension() != null) {

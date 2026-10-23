@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 
-import com.claim.platform.sign.infrastructure.persistence.ClaimIntakeTable;
+import com.claim.platform.sign.infrastructure.persistence.SignTable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -44,8 +44,8 @@ class SignNoSchemaValidatorTest {
         givenIndexMetadata();
         given(indexes.next()).willReturn(true, false);
         given(indexes.getInt("ORDINAL_POSITION")).willReturn(1);
-        given(indexes.getString("INDEX_NAME")).willReturn(ClaimIntakeTable.INDEX_UK_SIGN_NO);
-        given(indexes.getString("COLUMN_NAME")).willReturn(ClaimIntakeTable.SIGN_NO);
+        given(indexes.getString("INDEX_NAME")).willReturn(SignTable.INDEX_UK_SIGN_NO);
+        given(indexes.getString("COLUMN_NAME")).willReturn(SignTable.SIGN_NO);
 
         assertThatCode(validator::afterPropertiesSet).doesNotThrowAnyException();
     }
@@ -57,7 +57,7 @@ class SignNoSchemaValidatorTest {
 
         assertThatThrownBy(validator::afterPropertiesSet)
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining(ClaimIntakeTable.INDEX_UK_SIGN_NO);
+                .hasMessageContaining(SignTable.INDEX_UK_SIGN_NO);
     }
 
     @Test
@@ -65,8 +65,8 @@ class SignNoSchemaValidatorTest {
         givenIndexMetadata();
         given(indexes.next()).willReturn(true, false);
         given(indexes.getInt("ORDINAL_POSITION")).willReturn(1);
-        given(indexes.getString("INDEX_NAME")).willReturn(ClaimIntakeTable.INDEX_UK_SIGN_NO);
-        given(indexes.getString("COLUMN_NAME")).willReturn(ClaimIntakeTable.EXTERNAL_APPLY_NO);
+        given(indexes.getString("INDEX_NAME")).willReturn(SignTable.INDEX_UK_SIGN_NO);
+        given(indexes.getString("COLUMN_NAME")).willReturn(SignTable.EXTERNAL_APPLY_NO);
 
         assertThatThrownBy(validator::afterPropertiesSet)
                 .isInstanceOf(IllegalStateException.class)
@@ -89,7 +89,7 @@ class SignNoSchemaValidatorTest {
         given(dataSource.getConnection()).willReturn(connection);
         given(connection.getMetaData()).willReturn(metadata);
         given(connection.getCatalog()).willReturn(CATALOG);
-        given(metadata.getIndexInfo(CATALOG, null, ClaimIntakeTable.NAME, true, false))
+        given(metadata.getIndexInfo(CATALOG, null, SignTable.NAME, true, false))
                 .willThrow(new SQLException("metadata unavailable"));
 
         assertThatThrownBy(validator::afterPropertiesSet)
@@ -101,6 +101,6 @@ class SignNoSchemaValidatorTest {
         given(dataSource.getConnection()).willReturn(connection);
         given(connection.getMetaData()).willReturn(metadata);
         given(connection.getCatalog()).willReturn(CATALOG);
-        given(metadata.getIndexInfo(CATALOG, null, ClaimIntakeTable.NAME, true, false)).willReturn(indexes);
+        given(metadata.getIndexInfo(CATALOG, null, SignTable.NAME, true, false)).willReturn(indexes);
     }
 }

@@ -1,29 +1,19 @@
 package com.claim.platform.sign.application.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.hamcrest.Matchers.matchesPattern;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.reset;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-import com.claim.platform.sign.application.command.SubmitIntakeCommand;
+import com.claim.platform.sign.application.command.SignCommand;
 import com.claim.platform.sign.application.exception.SignNoUnavailableException;
 import com.claim.platform.sign.application.exception.SignNoUnavailableReason;
+import com.claim.platform.sign.application.handler.SignCommandHandler;
 import com.claim.platform.sign.application.port.SignNoFallbackAllocator;
 import com.claim.platform.sign.application.port.SignNoHighWaterMark;
-import com.claim.platform.sign.application.result.ClaimIntakeResult;
 import com.claim.platform.sign.application.result.ReconciliationStatus;
 import com.claim.platform.sign.application.result.SignNoAllocation;
 import com.claim.platform.sign.application.result.SignNoReconcileAllocationOutcome;
 import com.claim.platform.sign.application.result.SignNoReconciliationResult;
 import com.claim.platform.sign.application.result.SignNoRecoveryTrigger;
 import com.claim.platform.sign.application.result.SignNoSource;
-import com.claim.platform.sign.domain.model.SignNoFormat;
+import com.claim.platform.sign.application.result.SignResult;
+import com.claim.platform.sign.domain.model.SignNo;
 import com.claim.platform.sign.infrastructure.config.SignNoProperties;
 import com.claim.platform.sign.infrastructure.scheduling.SignNoReconciliationScheduler;
 import com.claim.platform.sign.interfaces.tenant.support.SupportTenantTestData;
@@ -45,6 +35,16 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.hamcrest.Matchers.matchesPattern;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.reset;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -78,9 +78,9 @@ import java.util.function.Supplier;
  */
 @SpringBootTest(properties = {
         "claim.internal.service-token=it-token",
-        "claim.intake.number.key-prefix=sign:no:it-${random.uuid}:",
-        "claim.intake.number.reconciliation-initial-delay=1h",
-        "claim.intake.number.reconciliation-interval=1h",
+        "claim.sign.number.key-prefix=sign:no:it-${random.uuid}:",
+        "claim.sign.number.reconciliation-initial-delay=1h",
+        "claim.sign.number.reconciliation-interval=1h",
         "claim.intake.submission.lock.wait-time=30s",
         "claim.intake.submission.lock.lease-time=60s"
 })
@@ -97,7 +97,7 @@ class SignNoGenerationIntegrationTest {
     private static final int TENANT_CONCURRENCY = 100;
 
     @Autowired
-    private ClaimIntakeCommandService commandService;
+    private SignCommandHandler commandService;
     @Autowired
     private SignNoAllocationService allocationService;
     @Autowired
@@ -152,16 +152,16 @@ class SignNoGenerationIntegrationTest {
     @Test
     void shouldAllocateUniqueSignNumbersForHundredConcurrentSubmissions() throws Exception {
         String tenantCode = newTenant();
-        List<Attempt<ClaimIntakeResult>> attempts = runConcurrently(TENANT_CONCURRENCY,
+        List<Attempt<SignResult>> attempts = runConcurrently(TENANT_CONCURRENCY,
                 () -> commandService.submit(command(tenantCode, newExternalApplyNo())));
 
         assertThat(attempts).allMatch(Attempt::succeeded);
         Set<String> signNos = new HashSet<>();
-        for (Attempt<ClaimIntakeResult> attempt : attempts) {
+        for (Attempt<SignResult> attempt : attempts) {
             signNos.add(attempt.value().signNo());
         }
         assertThat(signNos).hasSize(TENANT_CONCURRENCY);
-        assertThat(signNos).allMatch(SignNoFormat::isCurrentFormat);
+        assertThat(signNos).allMatch(SignNo::isCurrentFormat);
         assertThat(signNos).allMatch(signNo -> signNo.startsWith(datePrefix(today())));
         assertThat(countRows(tenantCode)).isEqualTo(TENANT_CONCURRENCY);
     }
@@ -170,7 +170,7 @@ class SignNoGenerationIntegrationTest {
     void shouldRecoverFromDeletedAndInvalidCounterUsingDatabaseHighWater() throws Exception {
         String tenantCode = newTenant();
         long base = highWaterMark.currentMaxSequence(today());
-        insertIntake(tenantCode, SignNoFormat.format(today(), base + 7), newExternalApplyNo(), false);
+        insertSign(tenantCode, SignNo.format(today(), base + 7), newExternalApplyNo(), false);
 
         deleteCounter(today());
         SignNoAllocation missingRecovery = allocationService.next();
@@ -178,7 +178,7 @@ class SignNoGenerationIntegrationTest {
         assertThat(sequence(missingRecovery.signNo())).isEqualTo(base + 8);
         assertThat(counterValue(today())).isEqualTo(base + 8);
 
-        insertIntake(tenantCode, missingRecovery.signNo(), newExternalApplyNo(), false);
+        insertSign(tenantCode, missingRecovery.signNo(), newExternalApplyNo(), false);
         deleteCounter(today());
         setCounter(today(), "not-a-sequence");
         SignNoAllocation invalidRecovery = allocationService.next();
@@ -201,13 +201,13 @@ class SignNoGenerationIntegrationTest {
     void shouldRecoverFromCounterRollbackAndSignNoCollision() throws Exception {
         String tenantCode = newTenant();
         long base = highWaterMark.currentMaxSequence(today());
-        insertIntake(tenantCode, SignNoFormat.format(today(), base + 1), newExternalApplyNo(), false);
+        insertSign(tenantCode, SignNo.format(today(), base + 1), newExternalApplyNo(), false);
         setCounter(today(), String.valueOf(base));
         double conflictBefore = counterCount("claim.intake.number.conflict", "type", "sign_no");
         double recoveryBefore = counterCount("claim.intake.number.recovery",
                 "trigger", SignNoRecoveryTrigger.UNIQUE_CONFLICT.code(), "result", "success");
 
-        ClaimIntakeResult result = commandService.submit(command(tenantCode, newExternalApplyNo()));
+        SignResult result = commandService.submit(command(tenantCode, newExternalApplyNo()));
 
         assertThat(sequence(result.signNo())).isEqualTo(base + 2);
         assertThat(counterValue(today())).isEqualTo(base + 2);
@@ -223,7 +223,7 @@ class SignNoGenerationIntegrationTest {
     void shouldCountSoftDeletedRowsInHighWaterMark() throws Exception {
         String tenantCode = newTenant();
         long base = highWaterMark.currentMaxSequence(today());
-        insertIntake(tenantCode, SignNoFormat.format(today(), base + 9), newExternalApplyNo(), true);
+        insertSign(tenantCode, SignNo.format(today(), base + 9), newExternalApplyNo(), true);
 
         deleteCounter(today());
         SignNoAllocation allocation = allocationService.next();
@@ -236,14 +236,14 @@ class SignNoGenerationIntegrationTest {
         String tenantCode = newTenant();
         String historicalSignNo = "SIGN0123456789abcdef0123";
         String externalApplyNo = newExternalApplyNo();
-        insertIntake(tenantCode, historicalSignNo, externalApplyNo, false);
+        insertSign(tenantCode, historicalSignNo, externalApplyNo, false);
         long base = highWaterMark.currentMaxSequence(today());
 
         deleteCounter(today());
         SignNoAllocation allocation = allocationService.next();
 
         assertThat(sequence(allocation.signNo())).isEqualTo(base + 1);
-        assertThat(SignNoFormat.isCurrentFormat(historicalSignNo)).isFalse();
+        assertThat(SignNo.isCurrentFormat(historicalSignNo)).isFalse();
         mockMvc.perform(gateway(get("/api/v1/claim-intakes/{signNo}", historicalSignNo), tenantCode))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
@@ -258,9 +258,9 @@ class SignNoGenerationIntegrationTest {
         long base = highWaterMark.currentMaxSequence(today());
         double fallbackBefore = counterCount("claim.intake.number.fallback", "result", "success");
 
-        ClaimIntakeResult result = commandService.submit(command(tenantCode, newExternalApplyNo()));
+        SignResult result = commandService.submit(command(tenantCode, newExternalApplyNo()));
 
-        assertThat(SignNoFormat.isCurrentFormat(result.signNo())).isTrue();
+        assertThat(SignNo.isCurrentFormat(result.signNo())).isTrue();
         assertThat(sequence(result.signNo())).isEqualTo(base + 1);
         assertThat(countRows(tenantCode, result.signNo())).isEqualTo(1);
         assertThat(counterValue(today())).isLessThan(sequence(result.signNo()));
@@ -275,12 +275,12 @@ class SignNoGenerationIntegrationTest {
         String tenantCode = newTenant();
         long base = highWaterMark.currentMaxSequence(today());
 
-        List<Attempt<ClaimIntakeResult>> attempts = runConcurrently(20,
+        List<Attempt<SignResult>> attempts = runConcurrently(20,
                 () -> commandService.submit(command(tenantCode, newExternalApplyNo())));
 
         List<String> signNos = new ArrayList<>();
         List<Throwable> failures = new ArrayList<>();
-        for (Attempt<ClaimIntakeResult> attempt : attempts) {
+        for (Attempt<SignResult> attempt : attempts) {
             if (attempt.succeeded()) {
                 signNos.add(attempt.value().signNo());
             } else {
@@ -299,7 +299,7 @@ class SignNoGenerationIntegrationTest {
     void shouldCalibrateRedisAndContinueAboveDatabaseMaxAfterRecovery() throws Exception {
         String tenantCode = newTenant();
         long base = highWaterMark.currentMaxSequence(today());
-        insertIntake(tenantCode, SignNoFormat.format(today(), base + 4), newExternalApplyNo(), false);
+        insertSign(tenantCode, SignNo.format(today(), base + 4), newExternalApplyNo(), false);
         setCounter(today(), String.valueOf(base + 1));
 
         SignNoReconciliationResult result = scheduler.requestAsync(today()).get(15, TimeUnit.SECONDS);
@@ -316,7 +316,7 @@ class SignNoGenerationIntegrationTest {
     void shouldReconcileMissingCounterWithoutConsumingSequence() throws Exception {
         String tenantCode = newTenant();
         long base = highWaterMark.currentMaxSequence(today());
-        insertIntake(tenantCode, SignNoFormat.format(today(), base + 4), newExternalApplyNo(), false);
+        insertSign(tenantCode, SignNo.format(today(), base + 4), newExternalApplyNo(), false);
         deleteCounter(today());
 
         SignNoReconciliationResult result = scheduler.requestAsync(today()).get(15, TimeUnit.SECONDS);
@@ -364,12 +364,12 @@ class SignNoGenerationIntegrationTest {
     @Test
     void shouldRejectCrossTenantDuplicateSignNoByGlobalUniqueIndex() {
         long base = highWaterMark.currentMaxSequence(today());
-        String signNo = SignNoFormat.format(today(), base + 1);
+        String signNo = SignNo.format(today(), base + 1);
         String firstTenant = newTenant();
         String secondTenant = newTenant();
-        insertIntake(firstTenant, signNo, newExternalApplyNo(), false);
+        insertSign(firstTenant, signNo, newExternalApplyNo(), false);
 
-        assertThatThrownBy(() -> insertIntake(secondTenant, signNo, newExternalApplyNo(), false))
+        assertThatThrownBy(() -> insertSign(secondTenant, signNo, newExternalApplyNo(), false))
                 .isInstanceOf(DuplicateKeyException.class);
         assertThat(countRows(secondTenant)).isZero();
     }
@@ -436,13 +436,13 @@ class SignNoGenerationIntegrationTest {
         assertThat(counterKey(firstDate)).endsWith(firstDate.format(DATE_KEY_FORMATTER));
         assertThat(clock.getZone()).isEqualTo(ZoneId.of("Asia/Shanghai"));
         assertThat(clock.getZone()).isEqualTo(properties.getZone());
-        assertThat(SignNoFormat.format(LocalDate.now(clock), 1)).startsWith(datePrefix(LocalDate.now(clock)));
+        assertThat(SignNo.format(LocalDate.now(clock), 1)).startsWith(datePrefix(LocalDate.now(clock)));
     }
 
     @Test
     void shouldRecordSequenceGapMetricDuringCalibration() throws Exception {
         long base = highWaterMark.currentMaxSequence(today());
-        insertIntake(newTenant(), SignNoFormat.format(today(), base + 5), newExternalApplyNo(), false);
+        insertSign(newTenant(), SignNo.format(today(), base + 5), newExternalApplyNo(), false);
         setCounter(today(), String.valueOf(base + 2));
 
         SignNoReconciliationResult result = scheduler.requestAsync(today()).get(15, TimeUnit.SECONDS);
@@ -457,20 +457,20 @@ class SignNoGenerationIntegrationTest {
         String tenantCode = newTenant();
         String externalApplyNo = newExternalApplyNo();
 
-        List<Attempt<ClaimIntakeResult>> attempts = runConcurrently(8,
+        List<Attempt<SignResult>> attempts = runConcurrently(8,
                 () -> commandService.submit(command(tenantCode, externalApplyNo)));
 
         assertThat(attempts).allMatch(Attempt::succeeded);
         Set<String> signNos = new HashSet<>();
-        for (Attempt<ClaimIntakeResult> attempt : attempts) {
+        for (Attempt<SignResult> attempt : attempts) {
             signNos.add(attempt.value().signNo());
         }
         assertThat(signNos).hasSize(1);
         assertThat(countRows(tenantCode)).isEqualTo(1);
     }
 
-    private SubmitIntakeCommand command(String tenantCode, String externalApplyNo) {
-        return new SubmitIntakeCommand(tenantCode, TRACE_ID, externalApplyNo, "集成测试", null, null, null,
+    private SignCommand command(String tenantCode, String externalApplyNo) {
+        return new SignCommand(tenantCode, TRACE_ID, externalApplyNo, "集成测试", null, null, null,
                 null, List.of(), "{}");
     }
 
@@ -487,11 +487,11 @@ class SignNoGenerationIntegrationTest {
     }
 
     private String datePrefix(LocalDate date) {
-        return SignNoFormat.PREFIX + date.format(DATE_KEY_FORMATTER);
+        return SignNo.PREFIX + date.format(DATE_KEY_FORMATTER);
     }
 
     private long sequence(String signNo) {
-        return SignNoFormat.parseSequence(signNo);
+        return SignNo.parseSequence(signNo);
     }
 
     private String counterKey(LocalDate date) {
@@ -511,7 +511,7 @@ class SignNoGenerationIntegrationTest {
         return value == null ? -1 : Long.parseLong(value);
     }
 
-    private void insertIntake(String tenantCode, String signNo, String externalApplyNo, boolean deleted) {
+    private void insertSign(String tenantCode, String signNo, String externalApplyNo, boolean deleted) {
         jdbcTemplate.update("""
                 INSERT INTO t_claim_intake (tenant_code, sign_no, external_apply_no, applicant_name,
                                             intake_status, is_deleted)

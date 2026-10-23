@@ -3,15 +3,15 @@ package com.claim.platform.sign.interfaces.tenant.reference;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
-import com.claim.platform.sign.application.command.SubmitIntakeCommand;
+import com.claim.platform.sign.application.command.SignCommand;
 import com.claim.platform.sign.interfaces.tenant.core.context.TenantContext;
 import com.claim.platform.sign.interfaces.tenant.core.context.TenantContextHolder;
-import com.claim.platform.sign.interfaces.tenant.core.exception.IntakeCodeMappingException;
-import com.claim.platform.sign.interfaces.tenant.core.exception.IntakePayloadParseException;
-import com.claim.platform.sign.interfaces.tenant.core.exception.IntakeRequestValidationException;
-import com.claim.platform.sign.interfaces.tenant.core.pipeline.DefaultIntakeConvertPipeline;
-import com.claim.platform.sign.interfaces.tenant.core.registry.TenantProtocolHandlerRegistry;
-import com.claim.platform.sign.interfaces.tenant.reference.dto.ReferenceIntakePayload;
+import com.claim.platform.sign.interfaces.tenant.core.exception.SignCodeMappingException;
+import com.claim.platform.sign.interfaces.tenant.core.exception.SignPayloadParseException;
+import com.claim.platform.sign.interfaces.tenant.core.exception.SignRequestValidationException;
+import com.claim.platform.sign.interfaces.tenant.core.pipeline.DefaultSignConvertPipeline;
+import com.claim.platform.sign.interfaces.tenant.core.registry.TenantProtocolAdapterRegistry;
+import com.claim.platform.sign.interfaces.tenant.reference.dto.ReferenceSignPayload;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -49,9 +49,9 @@ class ReferenceTenantAdapterTest {
             }
             """.formatted(CERTIFICATE_NO, MOBILE);
 
-    private final ReferenceProtocolHandler handler = new ReferenceProtocolHandler(new ObjectMapper(), VALIDATOR);
-    private final DefaultIntakeConvertPipeline pipeline = new DefaultIntakeConvertPipeline(
-            new TenantProtocolHandlerRegistry(List.of(handler)));
+    private final ReferenceProtocolAdapter handler = new ReferenceProtocolAdapter(new ObjectMapper(), VALIDATOR);
+    private final DefaultSignConvertPipeline pipeline = new DefaultSignConvertPipeline(
+            new TenantProtocolAdapterRegistry(List.of(handler)));
 
     @AfterEach
     void clearTenantContext() {
@@ -60,10 +60,10 @@ class ReferenceTenantAdapterTest {
 
     @Test
     void shouldConvertReferencePayload() {
-        ReferenceIntakePayload request = handler.parser().parse(VALID_PAYLOAD);
+        ReferenceSignPayload request = handler.parser().parse(VALID_PAYLOAD);
         handler.validator().validate(request);
 
-        SubmitIntakeCommand command = handler.converter().convert(request, CONTEXT);
+        SignCommand command = handler.converter().convert(request, CONTEXT);
 
         assertThat(command.tenantCode()).isEqualTo("reference");
         assertThat(command.traceId()).isEqualTo("trace-001");
@@ -86,7 +86,7 @@ class ReferenceTenantAdapterTest {
 
     @Test
     void shouldUseTrustedContextAndIgnorePayloadTenantFields() {
-        SubmitIntakeCommand command = execute(VALID_PAYLOAD);
+        SignCommand command = execute(VALID_PAYLOAD);
 
         assertThat(command.tenantCode()).isEqualTo("reference");
         assertThat(command.traceId()).isEqualTo("trace-001");
@@ -98,8 +98,8 @@ class ReferenceTenantAdapterTest {
         String payload = VALID_PAYLOAD.replace("\"certificateType\": \"IDCARD\"",
                 "\"certificateType\": \"UNKNOWN\"");
 
-        IntakeCodeMappingException exception = catchThrowableOfType(
-                () -> execute(payload), IntakeCodeMappingException.class);
+        SignCodeMappingException exception = catchThrowableOfType(
+                () -> execute(payload), SignCodeMappingException.class);
 
         assertThat(exception.fieldPath()).isEqualTo("applicant.certificateType");
         assertThat(exception.getMessage()).doesNotContain(CERTIFICATE_NO).doesNotContain(MOBILE);
@@ -109,8 +109,8 @@ class ReferenceTenantAdapterTest {
     void shouldRejectMissingRelationship() {
         String payload = VALID_PAYLOAD.replace(",\n    \"relationshipToInsured\": \"SELF\"", "");
 
-        IntakeRequestValidationException exception = catchThrowableOfType(
-                () -> execute(payload), IntakeRequestValidationException.class);
+        SignRequestValidationException exception = catchThrowableOfType(
+                () -> execute(payload), SignRequestValidationException.class);
 
         assertThat(exception.fieldPath()).isEqualTo("applicant.relationshipToInsured");
     }
@@ -120,21 +120,21 @@ class ReferenceTenantAdapterTest {
         String payload = VALID_PAYLOAD.replace("\"externalApplyNo\": \"EXT-001\",",
                 "\"externalApplyNo\": \"EXT-001\",\n  \"unknownField\": \"value\",");
 
-        IntakePayloadParseException exception = catchThrowableOfType(
-                () -> execute(payload), IntakePayloadParseException.class);
+        SignPayloadParseException exception = catchThrowableOfType(
+                () -> execute(payload), SignPayloadParseException.class);
 
         assertThat(exception.getMessage()).contains("报文解析失败");
     }
 
     @Test
     void shouldReturnEquivalentCommandsOnRepeatedConversion() {
-        SubmitIntakeCommand first = execute(VALID_PAYLOAD);
-        SubmitIntakeCommand second = execute(VALID_PAYLOAD);
+        SignCommand first = execute(VALID_PAYLOAD);
+        SignCommand second = execute(VALID_PAYLOAD);
 
         assertThat(second).isEqualTo(first);
     }
 
-    private SubmitIntakeCommand execute(String payload) {
+    private SignCommand execute(String payload) {
         TenantContextHolder.set(CONTEXT);
         try {
             return pipeline.execute(payload);

@@ -1,6 +1,6 @@
 package com.claim.platform.sign.interfaces.tenant.core.converter;
 
-import com.claim.platform.sign.application.command.SubmitIntakeCommand;
+import com.claim.platform.sign.application.command.SignCommand;
 import com.claim.platform.sign.interfaces.tenant.core.context.TenantContext;
 
 /**
@@ -19,5 +19,5 @@ public interface RequestConverter<T> {
      * @param context 可信租户上下文，只用于填充命令的可信元数据
      * @return 完整的平台标准签收命令
      */
-    SubmitIntakeCommand convert(T request, TenantContext context);
+    SignCommand convert(T request, TenantContext context);
 }

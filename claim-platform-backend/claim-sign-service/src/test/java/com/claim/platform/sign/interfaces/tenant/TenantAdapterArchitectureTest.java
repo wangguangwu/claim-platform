@@ -47,8 +47,8 @@ class TenantAdapterArchitectureTest {
     void routingCodeShouldNotBranchOnTenantOrProtocol() {
         Path mainSources = mainSources();
         List<Path> routingSources = List.of(
-                mainSources.resolve("interfaces/tenant/core/pipeline/DefaultIntakeConvertPipeline.java"),
-                mainSources.resolve("interfaces/tenant/core/registry/TenantProtocolHandlerRegistry.java"));
+                mainSources.resolve("interfaces/tenant/core/pipeline/DefaultSignConvertPipeline.java"),
+                mainSources.resolve("interfaces/tenant/core/registry/TenantProtocolAdapterRegistry.java"));
 
         assertThat(routingSources).allSatisfy(path -> assertThat(path).isRegularFile());
         for (Path path : routingSources) {

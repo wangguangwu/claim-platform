@@ -1,6 +1,6 @@
 package com.claim.platform.sign.interfaces.tenant.core.converter;
 
-import com.claim.platform.sign.interfaces.tenant.core.exception.IntakeCodeMappingException;
+import com.claim.platform.sign.interfaces.tenant.core.exception.SignCodeMappingException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -40,12 +40,12 @@ public final class CodeMapper<E extends Enum<E>> {
      *
      * @param tenantCode 租户原始编码
      * @return 平台标准枚举
-     * @throws IntakeCodeMappingException 编码未在映射表中声明
+     * @throws SignCodeMappingException 编码未在映射表中声明
      */
     public E map(String tenantCode) {
         E mapped = tenantCode == null ? null : mappings.get(tenantCode);
         if (mapped == null) {
-            throw new IntakeCodeMappingException(fieldPath);
+            throw new SignCodeMappingException(fieldPath);
         }
         return mapped;
     }

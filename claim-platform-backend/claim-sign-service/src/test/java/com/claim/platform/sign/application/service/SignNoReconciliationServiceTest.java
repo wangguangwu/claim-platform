@@ -20,7 +20,7 @@ import com.claim.platform.sign.application.result.SignNoReconcileAllocationOutco
 import com.claim.platform.sign.application.result.SignNoReconcileOutcome;
 import com.claim.platform.sign.application.result.SignNoReconciliationResult;
 import com.claim.platform.sign.application.result.SignNoRecoveryTrigger;
-import com.claim.platform.sign.domain.model.SignNoFormat;
+import com.claim.platform.sign.domain.model.SignNo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -119,7 +119,7 @@ class SignNoReconciliationServiceTest {
     void shouldFailRecoveryAllocationWhenHighWaterMarkExhausted() {
         SignNoRecoveryLockHandle handle = handle(LockAcquireStatus.ACQUIRED);
         given(recoveryLock.tryAcquire(BUSINESS_DATE)).willReturn(handle);
-        given(highWaterMark.currentMaxSequence(BUSINESS_DATE)).willReturn(SignNoFormat.MAX_SEQUENCE);
+        given(highWaterMark.currentMaxSequence(BUSINESS_DATE)).willReturn(SignNo.MAX_SEQUENCE);
 
         assertThatThrownBy(() -> reconciliationService.reconcileAndAllocate(BUSINESS_DATE,
                 SignNoRecoveryTrigger.MISSING_COUNTER))
@@ -135,8 +135,8 @@ class SignNoReconciliationServiceTest {
         given(recoveryLock.tryAcquire(BUSINESS_DATE)).willReturn(handle);
         given(highWaterMark.currentMaxSequence(BUSINESS_DATE)).willReturn(10L);
         given(counter.reconcileAndIncrement(BUSINESS_DATE, 10L))
-                .willReturn(new SignNoReconcileAllocationOutcome(SignNoFormat.MAX_SEQUENCE + 1, 10,
-                        SignNoFormat.MAX_SEQUENCE));
+                .willReturn(new SignNoReconcileAllocationOutcome(SignNo.MAX_SEQUENCE + 1, 10,
+                        SignNo.MAX_SEQUENCE));
 
         assertThatThrownBy(() -> reconciliationService.reconcileAndAllocate(BUSINESS_DATE,
                 SignNoRecoveryTrigger.MISSING_COUNTER))

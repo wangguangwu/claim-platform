@@ -4,10 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
-import com.claim.platform.sign.interfaces.tenant.core.exception.IntakeRequestValidationException;
+import com.claim.platform.sign.interfaces.tenant.core.exception.SignRequestValidationException;
 import com.claim.platform.sign.interfaces.tenant.core.parser.DefaultJsonParser;
 import com.claim.platform.sign.interfaces.tenant.support.SupportTenantApplicantPayload;
-import com.claim.platform.sign.interfaces.tenant.support.SupportTenantIntakePayload;
+import com.claim.platform.sign.interfaces.tenant.support.SupportTenantSignPayload;
 import com.claim.platform.sign.interfaces.tenant.support.SupportTenantTestData;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Validation;
@@ -22,23 +22,23 @@ import org.junit.jupiter.api.Test;
 class DefaultRequestValidatorTest {
 
     private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
-    private final DefaultRequestValidator<SupportTenantIntakePayload> requestValidator =
+    private final DefaultRequestValidator<SupportTenantSignPayload> requestValidator =
             new DefaultRequestValidator<>(validator);
 
     @Test
     void shouldAcceptPayloadThatSatisfiesPublicRules() {
-        SupportTenantIntakePayload payload = parse(SupportTenantTestData.VALID_PAYLOAD);
+        SupportTenantSignPayload payload = parse(SupportTenantTestData.VALID_PAYLOAD);
 
         assertThatCode(() -> requestValidator.validate(payload)).doesNotThrowAnyException();
     }
 
     @Test
     void shouldReportMissingRequiredField() {
-        SupportTenantIntakePayload payload = new SupportTenantIntakePayload(
+        SupportTenantSignPayload payload = new SupportTenantSignPayload(
                 null, applicant(), "2026-10-01", null, null, null);
 
-        IntakeRequestValidationException exception = catchThrowableOfType(
-                () -> requestValidator.validate(payload), IntakeRequestValidationException.class);
+        SignRequestValidationException exception = catchThrowableOfType(
+                () -> requestValidator.validate(payload), SignRequestValidationException.class);
 
         assertThat(exception.fieldPath()).isEqualTo("externalApplyNo");
     }
@@ -48,25 +48,25 @@ class DefaultRequestValidatorTest {
         SupportTenantApplicantPayload applicant = new SupportTenantApplicantPayload(
                 null, "IDCARD", SupportTenantTestData.CERTIFICATE_NO, SupportTenantTestData.MOBILE,
                 "M", "1990-01-01", "SELF");
-        SupportTenantIntakePayload payload = new SupportTenantIntakePayload(
+        SupportTenantSignPayload payload = new SupportTenantSignPayload(
                 "EXT-001", applicant, "2026-10-01", null, null, null);
 
-        IntakeRequestValidationException exception = catchThrowableOfType(
-                () -> requestValidator.validate(payload), IntakeRequestValidationException.class);
+        SignRequestValidationException exception = catchThrowableOfType(
+                () -> requestValidator.validate(payload), SignRequestValidationException.class);
 
         assertThat(exception.fieldPath()).isEqualTo("applicant.name");
     }
 
     @Test
     void shouldRejectNullRequest() {
-        IntakeRequestValidationException exception = catchThrowableOfType(
-                () -> requestValidator.validate(null), IntakeRequestValidationException.class);
+        SignRequestValidationException exception = catchThrowableOfType(
+                () -> requestValidator.validate(null), SignRequestValidationException.class);
 
         assertThat(exception.fieldPath()).isEqualTo("request");
     }
 
-    private SupportTenantIntakePayload parse(String payload) {
-        return new DefaultJsonParser<>(new ObjectMapper(), SupportTenantIntakePayload.class).parse(payload);
+    private SupportTenantSignPayload parse(String payload) {
+        return new DefaultJsonParser<>(new ObjectMapper(), SupportTenantSignPayload.class).parse(payload);
     }
 
     private SupportTenantApplicantPayload applicant() {

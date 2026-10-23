@@ -3,7 +3,7 @@ package com.claim.platform.sign.infrastructure.scheduling;
 import com.claim.platform.sign.application.result.ReconciliationStatus;
 import com.claim.platform.sign.application.result.SignNoReconciliationResult;
 import com.claim.platform.sign.application.result.SignNoRecoveryTrigger;
-import com.claim.platform.sign.application.service.IntakeMetricConstants;
+import com.claim.platform.sign.application.service.SignMetricConstants;
 import com.claim.platform.sign.application.service.SignNoMetrics;
 import com.claim.platform.sign.application.service.SignNoModeCoordinator;
 import com.claim.platform.sign.application.service.SignNoReconciliationService;
@@ -35,7 +35,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @RequiredArgsConstructor
 public class SignNoReconciliationScheduler {
 
-    private static final String THREAD_NAME = "intake-no-reconciler";
+    private static final String THREAD_NAME = "sign-no-reconciler";
     private static final long SHUTDOWN_WAIT_SECONDS = 3;
 
     private final SignNoReconciliationService reconciliationService;
@@ -60,7 +60,7 @@ public class SignNoReconciliationScheduler {
                 properties.getReconciliationInitialDelay().toMillis(),
                 properties.getReconciliationInterval().toMillis(),
                 TimeUnit.MILLISECONDS);
-        log.info("claim intake sign no reconciliation scheduler started initialDelay={} interval={} days={}",
+        log.info("claim sign no reconciliation scheduler started initialDelay={} interval={} days={}",
                 properties.getReconciliationInitialDelay(), properties.getReconciliationInterval(),
                 properties.getReconciliationDays());
     }
@@ -89,8 +89,8 @@ public class SignNoReconciliationScheduler {
      */
     public CompletableFuture<SignNoReconciliationResult> requestAsync(LocalDate businessDate) {
         if (running.get()) {
-            metrics.recordRecovery(SignNoRecoveryTrigger.MANUAL, IntakeMetricConstants.RESULT_SKIPPED);
-            log.info("claim intake sign no manual reconciliation skipped date={} reason=overlap", businessDate);
+            metrics.recordRecovery(SignNoRecoveryTrigger.MANUAL, SignMetricConstants.RESULT_SKIPPED);
+            log.info("claim sign no manual reconciliation skipped date={} reason=overlap", businessDate);
             return CompletableFuture.completedFuture(SignNoReconciliationResult.skipped(businessDate));
         }
         ScheduledExecutorService currentExecutor = executor;
@@ -105,8 +105,8 @@ public class SignNoReconciliationScheduler {
                 ? SignNoRecoveryTrigger.STARTUP
                 : SignNoRecoveryTrigger.PERIODIC;
         if (!running.compareAndSet(false, true)) {
-            metrics.recordRecovery(trigger, IntakeMetricConstants.RESULT_SKIPPED);
-            log.warn("claim intake sign no reconciliation skipped trigger={} reason=overlap", trigger.code());
+            metrics.recordRecovery(trigger, SignMetricConstants.RESULT_SKIPPED);
+            log.warn("claim sign no reconciliation skipped trigger={} reason=overlap", trigger.code());
             return;
         }
         String reconciliationId = UUID.randomUUID().toString();
@@ -127,8 +127,8 @@ public class SignNoReconciliationScheduler {
 
     private SignNoReconciliationResult manualRound(LocalDate businessDate) {
         if (!running.compareAndSet(false, true)) {
-            metrics.recordRecovery(SignNoRecoveryTrigger.MANUAL, IntakeMetricConstants.RESULT_SKIPPED);
-            log.info("claim intake sign no manual reconciliation skipped date={} reason=overlap", businessDate);
+            metrics.recordRecovery(SignNoRecoveryTrigger.MANUAL, SignMetricConstants.RESULT_SKIPPED);
+            log.info("claim sign no manual reconciliation skipped date={} reason=overlap", businessDate);
             return SignNoReconciliationResult.skipped(businessDate);
         }
         try {
@@ -146,8 +146,8 @@ public class SignNoReconciliationScheduler {
         try {
             result = reconciliationService.reconcile(businessDate, trigger);
         } catch (RuntimeException exception) {
-            metrics.recordRecovery(trigger, IntakeMetricConstants.RESULT_FAILURE);
-            log.error("claim intake sign no reconciliation failed date={} trigger={} reconciliationId={}",
+            metrics.recordRecovery(trigger, SignMetricConstants.RESULT_FAILURE);
+            log.error("claim sign no reconciliation failed date={} trigger={} reconciliationId={}",
                     businessDate, trigger.code(), reconciliationId, exception);
             throw exception;
         }
@@ -160,7 +160,7 @@ public class SignNoReconciliationScheduler {
             if (businessDate.equals(currentDate)) {
                 modeCoordinator.markRedisReady();
             }
-            log.info("claim intake sign no reconciled date={} trigger={} result={} dbMax={} before={} after={} "
+            log.info("claim sign no reconciled date={} trigger={} result={} dbMax={} before={} after={} "
                             + "gap={} reconciliationId={}", businessDate, trigger.code(), outcome,
                     result.dbHighWaterMark(), result.counterBefore(), result.counterAfter(),
                     result.sequenceGap(), reconciliationId);
@@ -168,7 +168,7 @@ public class SignNoReconciliationScheduler {
             if (result.failureReason() != null && result.failureReason().isRedisSide()) {
                 modeCoordinator.markRedisUnavailable();
             }
-            log.warn("claim intake sign no reconciliation not applied date={} trigger={} result={} reason={} "
+            log.warn("claim sign no reconciliation not applied date={} trigger={} result={} reason={} "
                             + "reconciliationId={}", businessDate, trigger.code(), outcome, result.failureReason(),
                     reconciliationId);
         }
@@ -177,27 +177,27 @@ public class SignNoReconciliationScheduler {
 
     private String metricOutcome(ReconciliationStatus status) {
         if (status == ReconciliationStatus.FAILED) {
-            return IntakeMetricConstants.RESULT_FAILURE;
+            return SignMetricConstants.RESULT_FAILURE;
         }
         if (status == ReconciliationStatus.SUCCESS) {
-            return IntakeMetricConstants.RESULT_SUCCESS;
+            return SignMetricConstants.RESULT_SUCCESS;
         }
-        return IntakeMetricConstants.RESULT_SKIPPED;
+        return SignMetricConstants.RESULT_SKIPPED;
     }
 
     private String scopeFor(int offset) {
         if (offset == 0) {
-            return IntakeMetricConstants.SCOPE_CURRENT;
+            return SignMetricConstants.SCOPE_CURRENT;
         }
-        return offset == 1 ? IntakeMetricConstants.SCOPE_PREVIOUS : null;
+        return offset == 1 ? SignMetricConstants.SCOPE_PREVIOUS : null;
     }
 
     private String scopeFor(LocalDate businessDate, LocalDate currentDate) {
         if (businessDate.equals(currentDate)) {
-            return IntakeMetricConstants.SCOPE_CURRENT;
+            return SignMetricConstants.SCOPE_CURRENT;
         }
         return businessDate.equals(currentDate.minusDays(1))
-                ? IntakeMetricConstants.SCOPE_PREVIOUS
+                ? SignMetricConstants.SCOPE_PREVIOUS
                 : null;
     }
 }
