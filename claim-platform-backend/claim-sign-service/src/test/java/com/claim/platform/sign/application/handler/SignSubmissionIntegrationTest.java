@@ -32,8 +32,8 @@ import java.util.concurrent.TimeUnit;
  * @author wangguangwu
  */
 @SpringBootTest(properties = {
-        "claim.intake.submission.lock.wait-time=10s",
-        "claim.intake.submission.lock.lease-time=30s"
+        "claim.sign.submission.lock.wait-time=10s",
+        "claim.sign.submission.lock.lease-time=30s"
 })
 @EnabledIf("isLocalInfrastructureAvailable")
 class SignSubmissionIntegrationTest {

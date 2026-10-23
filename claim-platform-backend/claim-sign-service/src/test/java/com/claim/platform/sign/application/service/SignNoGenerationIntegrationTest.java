@@ -81,8 +81,8 @@ import java.util.function.Supplier;
         "claim.sign.number.key-prefix=sign:no:it-${random.uuid}:",
         "claim.sign.number.reconciliation-initial-delay=1h",
         "claim.sign.number.reconciliation-interval=1h",
-        "claim.intake.submission.lock.wait-time=30s",
-        "claim.intake.submission.lock.lease-time=60s"
+        "claim.sign.submission.lock.wait-time=30s",
+        "claim.sign.submission.lock.lease-time=60s"
 })
 @AutoConfigureMockMvc
 @EnabledIf("isLocalInfrastructureAvailable")
