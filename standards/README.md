@@ -7,7 +7,7 @@
 规则冲突时按以下顺序处理：
 
 1. `specs/requirements.md`
-2. 对应 `specs/<feature-name>/` 功能 Spec
+2. 对应 `specs/active/<feature-name>/` 功能 Spec
 3. 本目录中与当前任务匹配的专项规范
 4. `README.md`
 
@@ -19,7 +19,8 @@
 任务识别 → 分支与工作区检查 → Spec → Spec Review → Task 实施 → 验证 → Commit / 交付
 ```
 
-- `AGENTS.md` 定义阶段、读取路由和门禁。
+- `AGENTS.md` 定义上下文选择与实施门禁。
+- `specs/README.md` 决定选择哪个活动 Spec；归档 Spec 不参与日常读取。
 - `spec-coding.md` 定义 Spec 内容、追踪关系、Review 和完成证据。
 - 其余文件只在对应实现或交付动作发生时读取，不需要为了“完整阅读”全部加载。
 

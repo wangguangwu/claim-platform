@@ -4,8 +4,8 @@
 
 - 功能名称：`person-model`
 - 文档类型：`tasks`
-- 关联需求：`specs/person-model/requirements.md`
-- 关联设计：`specs/person-model/design.md`
+- 关联需求：`specs/active/person-model/requirements.md`
+- 关联设计：`specs/active/person-model/design.md`
 - 状态：In Progress
 
 ## 任务追踪

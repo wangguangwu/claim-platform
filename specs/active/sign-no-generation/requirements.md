@@ -4,12 +4,12 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 状态 | Implemented（2026-10-23 根需求修订评审通过，实现与本地验证完成，待发布） |
+| 状态 | Ready for Release（2026-10-23 根需求修订评审通过，实现与本地验证完成，待发布） |
 | 所属限界上下文 | Claim Intake |
 | 模块 | `backend/claim-intake-service` |
 | 功能分支 | 实现前创建 `feat/sign-no-generation`；本 Spec 在 `docs/sign-no-generation` |
 | 关联根需求 | `specs/requirements.md` |
-| 关联 Spec | `specs/claim-intake-standard-flow/`、`specs/application-intake/` |
+| 关联 Spec | `specs/active/claim-intake-standard-flow/`、`specs/archive/application-intake/` |
 | 本次交付 | 全局按日签收号、Redis INCR 主发号、MySQL 降级发号、Redis 恢复校准、MySQL 全局唯一、后台校准、失败映射、数据库迁移、配置、指标与测试 |
 
 ## 背景与目标

@@ -4,8 +4,8 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 状态 | Implemented（待评审） |
-| 关联需求 | `specs/backend-constants-mybatis-plus/requirements.md` |
+| 状态 | In Review（实现与本地验证完成，待人工评审） |
+| 关联需求 | `specs/active/backend-constants-mybatis-plus/requirements.md` |
 | 所属限界上下文 | Claim Intake |
 | 模块 | `backend/claim-intake-service`、`backend/claim-common` |
 

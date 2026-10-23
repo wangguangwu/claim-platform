@@ -11,7 +11,7 @@
 
 当前进度：TK-CISF-002 至 TK-CISF-009、TK-CISF-011 已完成；Redisson watchdog 续期和代码规范复核已通过全量构建。Gateway 鉴权、租户识别、限流和协议版本透传仍未实现，TK-CISF-010 保持 Blocked，端到端验证缺口记录在已知限制中。
 
-> 编号生成变更：本文件 TK-CISF-005、TK-CISF-007、TK-CISF-008 中关于 `SignNoGenerator`、`SIGN` 格式和单次编号重试的完成证据，仅记录当时实现；现行发号规则以 `specs/sign-no-generation/` 为准。
+> 编号生成变更：本文件 TK-CISF-005、TK-CISF-007、TK-CISF-008 中关于 `SignNoGenerator`、`SIGN` 格式和单次编号重试的完成证据，仅记录当时实现；现行发号规则以 `specs/active/sign-no-generation/` 为准。
 
 ## 任务清单
 
@@ -31,7 +31,7 @@
 
 ## 实现前门禁
 
-- [x] 已建立 `specs/claim-intake-standard-flow/` 三份 Spec。
+- [x] 已建立 `specs/active/claim-intake-standard-flow/` 三份 Spec。
 - [x] 已确认 `SubmitIntakeCommand` 承载材料元数据（A-3），并接受 `reference`/既有入口传空列表。
 - [x] 已确认材料非空时初始状态为 `IMAGE_UPLOADED`、材料为空时为 `IMAGE_NOT_UPLOAD`（A-4）。
 - [x] 已确认 Redis 不可用时降级到唯一键路径（A-5）。
@@ -98,7 +98,7 @@
 - 新增指标：`claim.intake.submission`、`claim.intake.submission.lock`、`claim.intake.submission.conflict`。
 - 不修改数据库 Schema、HTTP 路径、成功响应结构、`signNo` 语义和材料上传状态机。
 - Redis 仅新增短期锁键，不保存业务事实；键在租期后自动清理。
-- 本功能完成后需回写 `specs/tenant-adapter-intake/` 的 A-1，说明标准命令已承载材料元数据，`reference` 仍传空列表。
+- 本功能完成后需回写 `specs/active/tenant-adapter-intake/` 的 A-1，说明标准命令已承载材料元数据，`reference` 仍传空列表。
 
 ## 完成门禁
 

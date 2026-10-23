@@ -1,6 +1,6 @@
 # 租户签收报文转换层设计
 
-> 状态：Done（reference 参考协议）。通用框架、默认组件、注册表和 Pipeline 已实现；`reference` 参考租户适配器与 `POST /api/v1/tenant-intakes` 入口已接入。真实租户协议仍待替换。
+> 状态：Blocked。通用框架、默认组件、注册表和 Pipeline 已实现；`reference` 参考租户适配器与 `POST /api/v1/tenant-intakes` 入口已接入。真实租户协议、字段与材料编码映射仍待提供。
 
 ## 1. 目标与边界
 

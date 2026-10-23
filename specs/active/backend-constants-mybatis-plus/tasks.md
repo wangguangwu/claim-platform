@@ -4,9 +4,9 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 状态 | Implemented（待评审） |
-| 关联需求 | `specs/backend-constants-mybatis-plus/requirements.md` |
-| 关联设计 | `specs/backend-constants-mybatis-plus/design.md` |
+| 状态 | In Review（实现与本地验证完成，待人工评审） |
+| 关联需求 | `specs/active/backend-constants-mybatis-plus/requirements.md` |
+| 关联设计 | `specs/active/backend-constants-mybatis-plus/design.md` |
 | Spec 分支 | `docs/backend-constants-mybatis-plus` |
 | 实现分支 | `refactor/backend-constants-mybatis-plus`（基于 Spec 分支的子分支） |
 | 验证环境 | 本地 MySQL 8.4 + Redis 7.4；`mvn -pl backend/claim-intake-service -am clean verify` |
@@ -15,7 +15,7 @@
 
 | ID | 任务 | 依赖 | 需求/设计回链 | 状态 | 证据 |
 | --- | --- | --- | --- | --- | --- |
-| TK-CMP-001 | 编写重构 Spec，明确范围、非范围、EARS 需求、兼容性和验证策略 | 无 | FR-CMP-001 至 FR-CMP-014、DS-CMP-001 | Done | `specs/backend-constants-mybatis-plus/requirements.md`、`design.md`、`tasks.md` |
+| TK-CMP-001 | 编写重构 Spec，明确范围、非范围、EARS 需求、兼容性和验证策略 | 无 | FR-CMP-001 至 FR-CMP-014、DS-CMP-001 | Done | `specs/active/backend-constants-mybatis-plus/requirements.md`、`design.md`、`tasks.md` |
 | TK-CMP-002 | 新增持久化表/列/索引常量，并应用到三个数据对象 | TK-CMP-001 | FR-CMP-004、DS-CMP-002 | Done | `ClaimIntakeTable`、`IntakeMaterialTable`、`InteractionLogTable` 应用于 3 个 DO |
 | TK-CMP-003 | `SignNoSequenceMapper` 改为 `BaseMapper` + `QueryWrapper`，删除 `@Select` | TK-CMP-002 | FR-CMP-001、FR-CMP-002、DS-CMP-003 | Done | `SignNoSequenceMapper` 无 SQL 注解，聚合查询语义不变 |
 | TK-CMP-004 | `SignNoSchemaValidator` 改为 JDBC 元数据校验，更新单元测试 | TK-CMP-002 | FR-CMP-003、DS-CMP-004 | Done | `DatabaseMetaData.getIndexInfo` 校验；`SignNoSchemaValidatorTest` 5/5 |

@@ -31,7 +31,9 @@ claim-platform/
 | 文件或目录 | 职责 | 是否作为实现依据 |
 | --- | --- | --- |
 | [specs/requirements.md](specs/requirements.md) | 项目稳定业务与架构约束 | 是，优先级最高 |
-| `specs/<feature-name>/` | 功能需求、设计、任务和验收证据 | 是，不得与根需求冲突 |
+| `specs/README.md` | 选择当前活动 Spec 与归档历史证据 | 是，开始功能任务时先读取 |
+| `specs/active/<feature-name>/` | 活动功能的需求、设计、任务和验收证据 | 是，不得与根需求冲突 |
+| `specs/archive/<feature-name>/` | 已完成功能的决策与验证证据 | 否，仅在历史追溯时读取 |
 | [standards/](standards/README.md) | DDD、Spec Coding、语言、前端和提交规范 | 是，按当前任务增量读取 |
 | [AGENTS.md](AGENTS.md) | 指定任务需要读取哪些规范及执行门禁 | 是，作为规则入口 |
 | `README.md` | 项目导航和技术基线 | 否 |

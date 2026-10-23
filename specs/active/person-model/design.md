@@ -4,8 +4,8 @@
 
 - 功能名称：`person-model`
 - 文档类型：`design`
-- 关联需求：`specs/person-model/requirements.md`
-- 状态：Draft
+- 关联需求：`specs/active/person-model/requirements.md`
+- 状态：In Progress（领域模型与转换已实现，待完成测试改造和构建验证）
 
 ## 1. 领域模型设计（DS-1）
 

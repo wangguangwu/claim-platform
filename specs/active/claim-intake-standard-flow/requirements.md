@@ -4,15 +4,15 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 状态 | Draft（需求与设计已完成，待评审后进入实现） |
+| 状态 | Blocked（服务内实现与验证已完成；等待 Gateway 可信身份、租户、Trace 和协议版本透传的端到端验证） |
 | 所属限界上下文 | Claim Intake |
 | 模块 | `backend/claim-intake-service` |
 | 功能分支 | `feat/claim-intake-standard-flow`（实现前创建） |
 | 关联根需求 | `specs/requirements.md` |
-| 关联 Spec | `specs/application-intake/`、`specs/tenant-adapter-intake/` |
+| 关联 Spec | `specs/archive/application-intake/`、`specs/active/tenant-adapter-intake/` |
 | 本次交付 | 标准签收命令、三级幂等、Redisson 业务锁、事务边界、材料与交互日志原子写入、错误映射、指标与测试 |
 
-> 编号生成变更：签收号格式、发号方式和碰撞重试策略已由 `specs/sign-no-generation/` 取代。本文件的 FR-CISF-005、FR-CISF-009、FR-CISF-017 中与编号格式、重试次数和“数据库 Schema 不变”相关的描述，以及“非范围”中“不新增或修改数据库 Schema”的描述，以新 Spec 为准；`signNo` 字段名保持不变。
+> 编号生成变更：签收号格式、发号方式和碰撞重试策略已由 `specs/active/sign-no-generation/` 取代。本文件的 FR-CISF-005、FR-CISF-009、FR-CISF-017 中与编号格式、重试次数和“数据库 Schema 不变”相关的描述，以及“非范围”中“不新增或修改数据库 Schema”的描述，以新 Spec 为准；`signNo` 字段名保持不变。
 
 ## 范围
 
@@ -43,7 +43,7 @@
 
 - Gateway 的鉴权、租户识别、限流、Trace 注入和协议版本头透传实现；本功能只消费其可信透传结果。当前 `claim-gateway` 仅为可启动骨架，端到端能力需另立 Gateway Spec。
 - 验签、解密和密钥管理；本功能以已完成验签、解密的受信任请求为起点，现有 `reference` 协议不包含密码学处理。
-- 真实租户协议、XML 解析和真实租户编码表；仍按 `specs/tenant-adapter-intake/` 的边界推进。
+- 真实租户协议、XML 解析和真实租户编码表；仍按 `specs/active/tenant-adapter-intake/` 的边界推进。
 - 材料二进制内容的存储、下载、访问和 OSS 配置；本功能只处理材料元数据。
 - 承保查询、审核系统同步、问题件反馈、补材重提、案件撤销、Outbox、MQ 和下游同步。
 - 材料上传用例 `uploadMaterials` 的状态机和请求级幂等；该用例保持现有行为。
@@ -214,7 +214,7 @@ WHEN 标准签收用例持有业务锁的时间达到基础租期 THEN THE SYSTE
 
 ### A-3 材料进入标准命令
 
-本 Spec 决策：`SubmitIntakeCommand` 承载材料元数据，由标准创建事务原子写入，解决 `specs/tenant-adapter-intake/` 的 A-1。`reference` 和既有 HTTP 入口当前传空列表；材料二进制存储仍不在范围内。该决策需在实现前确认，确认后回写旧 Spec 的 A-1。
+本 Spec 决策：`SubmitIntakeCommand` 承载材料元数据，由标准创建事务原子写入，解决 `specs/active/tenant-adapter-intake/` 的 A-1。`reference` 和既有 HTTP 入口当前传空列表；材料二进制存储仍不在范围内。该决策需在实现前确认，确认后回写旧 Spec 的 A-1。
 
 ### A-4 初始状态
 

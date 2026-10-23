@@ -4,12 +4,12 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 状态 | Done（reference 参考协议接入；真实租户协议待替换） |
+| 状态 | Blocked（reference 参考协议已接入；等待真实租户协议、字段与材料编码映射） |
 | 所属限界上下文 | Claim Intake |
 | 模块 | `backend/claim-intake-service` |
 | 功能分支 | `feat/tenant-adapter-intake` |
 | 关联根需求 | `specs/requirements.md` |
-| 关联 Spec | `specs/application-intake/requirements.md`、`specs/claim-intake-ddd-package-refactor/requirements.md` |
+| 关联 Spec | `specs/archive/application-intake/requirements.md`、`specs/archive/claim-intake-ddd-package-refactor/requirements.md` |
 | 本次交付 | 通用转换框架、默认组件、注册表、Pipeline、`reference` 参考租户适配器、`POST /api/v1/tenant-intakes` HTTP 入口与异常映射；不包含真实租户协议或数据库变更 |
 
 ## 范围
@@ -215,7 +215,7 @@ WHEN HTTP 入口的上下文解析或报文转换失败 THEN THE SYSTEM SHALL �
 
 ### A-1 标准命令中的材料（已解决，2026-10-23）
 
-`SubmitIntakeCommand` 已由 `specs/claim-intake-standard-flow/` 扩展，新增不可变 `materials` 列表，并在同一创建事务中与申请、初始状态和 `SIGN_RECEIVE` 日志一起写入。材料非空时初始状态为 `IMAGE_UPLOADED`，为空时为 `IMAGE_NOT_UPLOAD`。
+`SubmitIntakeCommand` 已由 `specs/active/claim-intake-standard-flow/` 扩展，新增不可变 `materials` 列表，并在同一创建事务中与申请、初始状态和 `SIGN_RECEIVE` 日志一起写入。材料非空时初始状态为 `IMAGE_UPLOADED`，为空时为 `IMAGE_NOT_UPLOAD`。
 
 本功能的 `reference` 适配器和既有 HTTP 入口均传空列表，不映射材料；真实租户报文中的材料字段仍需在获得首批真实报文后，以独立变更补齐 Parser、Validator、Converter 和编码表。材料二进制内容的上传、存储和下载仍不在上述两个功能的范围内。
 

@@ -4,9 +4,9 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 状态 | Implemented（2026-10-23 本地实现与验证完成，待提交和生产发布验证） |
-| 关联需求 | `specs/sign-no-generation/requirements.md` |
-| 关联设计 | `specs/sign-no-generation/design.md` |
+| 状态 | Ready for Release（2026-10-23 本地实现与验证完成，待生产发布验证） |
+| 关联需求 | `specs/active/sign-no-generation/requirements.md` |
+| 关联设计 | `specs/active/sign-no-generation/design.md` |
 | 实现分支 | `feat/sign-no-generation` |
 | 验证环境 | 本地 MySQL 8.4 + Redis 7.4；`mvn -pl backend/claim-intake-service -am clean verify` |
 
@@ -30,7 +30,7 @@
 | TK-SNG-014 | 指标、日志与告警依据：发号/降级/恢复/冲突/不可用/耗尽/序列差值指标，敏感信息检查 | TK-SNG-008、TK-SNG-012 | FR-SNG-015、DS-SNG-012 | Done | `SignNoMetrics` 五个指标；TEST-SNG-035 校验 `sequence_gap{scope=current}`；`shouldNotLogSensitiveCommandValues` 通过 |
 | TK-SNG-015 | 单元测试：格式、回放、缺失/非法 Key、锁失败、冲突、降级、耗尽、配置、就绪切换、边界 | TK-SNG-003 至 TK-SNG-014 | TEST-SNG-001 至 TEST-SNG-018 | Done | `mvn verify` 共 200 项，Failures 0、Errors 0、Skipped 0 |
 | TK-SNG-016 | 集成与并发测试：真实 MySQL/Redis、计数器删除/回退、软删除、历史编号、Redis 不可用降级、Redis 恢复校准、降级关闭、跨租户唯一、后台校准、在途碰撞 | TK-SNG-002 至 TK-SNG-015 | TEST-SNG-019 至 TEST-SNG-036 | Done | `SignNoGenerationIntegrationTest` 17 项真实 MySQL/Redis 全部通过，无跳过；另含 `ClaimIntakeSubmissionIntegrationTest` 1 项通过 |
-| TK-SNG-017 | 关联 Spec 回写：标注 `claim-intake-standard-flow` 中编号条款被取代 | 无 | FR-SNG-013、DS-SNG-013 | Done | 已在 `docs/sign-no-generation` 分支为 `specs/claim-intake-standard-flow/requirements.md`、`design.md` 和 `tasks.md` 添加取代说明 |
+| TK-SNG-017 | 关联 Spec 回写：标注 `claim-intake-standard-flow` 中编号条款被取代 | 无 | FR-SNG-013、DS-SNG-013 | Done | 已在 `docs/sign-no-generation` 分支为 `specs/active/claim-intake-standard-flow/requirements.md`、`design.md` 和 `tasks.md` 添加取代说明 |
 | TK-SNG-018 | 发布验证：`mvn verify`、迁移演练、降级演练、恢复演练、回滚演练、告警配置、已知限制确认 | TK-SNG-001 至 TK-SNG-017 | 全部 | Done | 本地验证全部通过，记录见“发布验证记录”；生产迁移预演、告警规则落地和发布说明仍待发布流程执行 |
 
 ## 需求追踪矩阵

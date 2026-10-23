@@ -4,12 +4,12 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 状态 | Draft（设计完成，待评审后实现） |
-| 关联需求 | `specs/claim-intake-standard-flow/requirements.md` |
+| 状态 | Blocked（服务内实现与验证已完成；等待 Gateway 可信身份、租户、Trace 和协议版本透传的端到端验证） |
+| 关联需求 | `specs/active/claim-intake-standard-flow/requirements.md` |
 | 所属限界上下文 | Claim Intake |
 | 模块 | `backend/claim-intake-service` |
 
-> 编号生成变更：本文件 DS-CISF-003、DS-CISF-004 中的 `SignNoGenerator`、`SIGN` + 20 位十六进制格式、单次编号碰撞重试，以及 DS-CISF-010 中“不新增索引”的描述，已由 `specs/sign-no-generation/` 取代；发号实现以新 Spec 为准。
+> 编号生成变更：本文件 DS-CISF-003、DS-CISF-004 中的 `SignNoGenerator`、`SIGN` + 20 位十六进制格式、单次编号碰撞重试，以及 DS-CISF-010 中“不新增索引”的描述，已由 `specs/active/sign-no-generation/` 取代；发号实现以新 Spec 为准。
 
 ## DS-CISF-001 职责边界与总体流程
 
@@ -109,7 +109,7 @@ public record SubmitIntakeCommand(String tenantCode, String traceId, String exte
 材料非空 → ClaimIntake.create(...) → registerMaterials() → IMAGE_UPLOADED
 ```
 
-`ClaimIntake.create` 仍只从 `IMAGE_NOT_UPLOAD` 开始，状态迁移通过聚合方法完成，不在服务中直接赋值。该设计解决 `specs/tenant-adapter-intake/` 的 A-1；实现完成后需回写旧 Spec。
+`ClaimIntake.create` 仍只从 `IMAGE_NOT_UPLOAD` 开始，状态迁移通过聚合方法完成，不在服务中直接赋值。该设计解决 `specs/active/tenant-adapter-intake/` 的 A-1；实现完成后需回写旧 Spec。
 
 ## DS-CISF-003 三级幂等与 Redisson 业务锁
 

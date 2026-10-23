@@ -4,12 +4,12 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 状态 | Implemented（待评审） |
+| 状态 | In Review（实现与本地验证完成，待人工评审） |
 | 所属限界上下文 | Claim Intake |
 | 模块 | `backend/claim-intake-service`、`backend/claim-common` |
 | 功能分支 | Spec 分支 `docs/backend-constants-mybatis-plus`；实现子分支 `refactor/backend-constants-mybatis-plus`（基于 Spec 分支） |
 | 关联根需求 | `specs/requirements.md` |
-| 关联 Spec | `specs/sign-no-generation/`、`specs/claim-intake-standard-flow/` |
+| 关联 Spec | `specs/active/sign-no-generation/`、`specs/active/claim-intake-standard-flow/` |
 | 本次交付 | 移除 Mapper 与启动校验中的手写 SQL、统一使用 MyBatis-Plus、集中硬编码值，外部行为保持不变 |
 
 ## 背景与目标

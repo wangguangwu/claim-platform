@@ -6,7 +6,7 @@
 - 所属限界上下文：Claim Intake（`claim-intake-service`）
 - 文档类型：`requirements`
 - 关联根约束：`specs/requirements.md`
-- 状态：Draft
+- 状态：In Progress（领域模型与转换已实现，待完成测试改造和构建验证）
 
 ## 背景
 

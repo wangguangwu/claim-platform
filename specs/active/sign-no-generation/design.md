@@ -4,8 +4,8 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 状态 | Implemented（2026-10-23 实现完成，已按实际实现回写偏差） |
-| 关联需求 | `specs/sign-no-generation/requirements.md` |
+| 状态 | Ready for Release（2026-10-23 实现完成，已按实际实现回写偏差） |
+| 关联需求 | `specs/active/sign-no-generation/requirements.md` |
 | 所属限界上下文 | Claim Intake |
 | 模块 | `backend/claim-intake-service` |
 

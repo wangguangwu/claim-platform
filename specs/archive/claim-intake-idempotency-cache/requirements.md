@@ -9,7 +9,7 @@
 | 模块 | `backend/claim-intake-service` |
 | 功能分支 | `feat/claim-intake-idempotency-cache` |
 | 关联根需求 | `specs/requirements.md` |
-| 关联 Spec | `specs/claim-intake-standard-flow/`、`specs/application-intake/` |
+| 关联 Spec | `specs/active/claim-intake-standard-flow/`、`specs/archive/application-intake/` |
 | 本次交付 | 幂等键 Redis 定位缓存、MySQL 降级、缓存回填、配置、指标与测试 |
 
 ## 项目背景与目标
