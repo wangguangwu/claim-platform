@@ -9,15 +9,15 @@
 
 ## 项目结构
 
+2026-10-24 签收域蓝本确立后，既有实现与建表、容器脚本整体下线，仓库当前只有可构建的后端骨架与文档；前端工程与 `docker/` 环境已删除，重建时由对应 Spec 交付。
+
 ```text
 claim-platform/
-├── claim-platform-frontend/      # 统一前端（Vue 3 + TypeScript）：sign / material / issue / case / push / tenant
-├── claim-platform-backend/       # 后端 Maven 聚合工程
+├── claim-platform-backend/       # 后端 Maven 聚合工程（当前仅骨架）
 │   ├── claim-gateway/            # 租户接入边缘层：认证、验签、加解密、协议适配、路由、限流、Trace
 │   ├── claim-sign-service/       # 理赔签收限界上下文
 │   ├── claim-case-push-service/  # 案件推送限界上下文
 │   └── claim-common/             # 无领域规则的共享技术能力与稳定契约（不计入服务结构）
-├── docker/                       # Docker Compose、中间件初始化脚本与本地运行配置
 ├── docs/
 │   ├── specs/                    # 项目基线与活动功能 Spec
 │   └── engineering/              # 流程、Spec 与代码规范
@@ -29,20 +29,21 @@ claim-platform/
 
 | 模块 | 职责 | 默认端口 | 当前状态 |
 | --- | --- | --- | --- |
-| `claim-gateway` | 报文协议、认证、验签、加解密、限流、路由、Trace | 8080 | 仅可启动骨架；报文适配未实现，租户业务语义转换归签收防腐层（基线 §5） |
-| `claim-sign-service` | 签收提交与查询、幂等回放、发号、材料登记 | 8081 | 已实现部分核心链路；库表仍是 `t_claim_intake*`，状态模型与分层包结构按基线 §8 收敛 |
-| `claim-case-push-service` | 推送任务、推送记录、回执、推送策略 | 8082 | 仅可启动骨架；`push_db` 尚无业务表 |
-| `claim-common` | 响应信封 `ApiResult<T>` 等稳定技术契约 | — | 无领域规则 |
-| `claim-platform-frontend` | 六个功能域的查询与交互页面 | — | 仅工程占位，尚无页面代码 |
+| `claim-gateway` | 报文协议、认证、验签、加解密、限流、路由、Trace | 8080 | 仅启动类，无任何网关能力 |
+| `claim-sign-service` | 签收提交与查询、材料处理、承保查询、审核同步、问题件、撤销 | 8081 | 仅启动类与配置文件；业务实现已于 2026-10-24 清空，按基线 §8 从蓝本重新实现 |
+| `claim-case-push-service` | 推送任务、推送记录、回执、推送策略 | 8082 | 仅启动类 |
+| `claim-common` | 响应信封 `ApiResult<T>` 等稳定技术契约 | — | 仅 `ApiResult` 与其单元测试，无领域规则 |
 
-每个可执行服务通过 `/actuator/health` 提供本地存活检查。可启动骨架不代表对应业务能力已经实现。
+三个服务都只有启动类，可编译、可打包；`/actuator/health` 是唯一的运行时端点。可启动不代表业务能力存在。前端与本地 MySQL/Redis、RocketMQ、OSS 环境均不在仓库内，需要各自的 Spec 交付。
 
 ## 技术基线
 
 - 后端：Java 17、Spring Boot 3.2、Spring Cloud、Spring Cloud Alibaba、MySQL 8、Redis 7、RocketMQ、XXL-Job。
-- 前端：Vue 3、TypeScript、Vite、Pinia、Vue Router、Axios。
+- 前端：Vue 3、TypeScript、Vite、Pinia、Vue Router、Axios（工程尚未建立）。
 - 可观测：OpenTelemetry、Prometheus、Grafana、Loki。
-- 容器：Docker、Docker Compose。
+- 容器：Docker、Docker Compose（编排与建表脚本已随实现下线）。
+
+约束的完整表述见 [docs/specs/baseline.md](docs/specs/baseline.md) §3。
 
 ## 工程治理与渐进披露
 
@@ -66,11 +67,11 @@ claim-platform/
 mvn verify
 ```
 
-后端改动必须通过 `mvn verify`；涉及前端时另需 `npm run typecheck` 与 `npm run build`。门禁细则见 [docs/engineering/workflow.md](docs/engineering/workflow.md) 第 6 节。
+后端改动必须通过 `mvn verify`；前端工程建立后另需 `npm run typecheck` 与 `npm run build`。门禁细则见 [docs/engineering/workflow.md](docs/engineering/workflow.md) 第 6 节。
 
 ## 本地启动
 
-先按 [Docker 运行说明](docker/README.md) 启动 MySQL 与 Redis，再构建并单独启动需要调试的服务：
+骨架的 `application.yml` 仍指向 MySQL 与 Redis，但仓库不再提供容器编排与建表脚本：本地启动需要自备这两个中间件，或由交付对应能力的 Spec 一并重建 `docker/` 环境。构建产物可正常打包，骨架的实际启动行为未做验证。
 
 ```bash
 mvn package
@@ -81,4 +82,4 @@ java -jar claim-platform-backend/claim-case-push-service/target/claim-case-push-
 
 ## 已知偏差
 
-目标架构与代码现状的差距、以及刻意保持不变的对外契约（HTTP 路径、错误码字符串、指标名、Redis 键前缀、库名）统一登记在 [docs/specs/baseline.md](docs/specs/baseline.md) 第 8 节，本 README 不重复维护。签收域蓝本与代码不一致的地方以基线为准，代码向基线收敛。
+签收域蓝本与代码现状的差距、刻意保持不变的对外契约（HTTP 路径、错误码字符串、指标名、Redis 键前缀、库名），以及 2026-10-24 实现清空后的重建起点，统一登记在 [docs/specs/baseline.md](docs/specs/baseline.md) 第 8 节，本 README 不重复维护。蓝本与代码不一致的地方以基线为准，代码向基线收敛。
