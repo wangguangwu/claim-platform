@@ -114,6 +114,17 @@
 
 实施后以 `find src -name '*.java' | xargs wc -l` 复核；主代码行数偏离 ±3% 以上视为清单不准，需回改本节而不是放过。
 
+### 5.1 再往下删的边界
+
+按"全部删除"的意图复核过残留的 90 个主代码文件，构成是：
+
+| 块 | 文件 | 行数 | 判定 |
+| --- | --- | --- | --- |
+| 发号 + 三级幂等 + 对账 + Schema 校验（`application/port`、`application/result`、`application/service`、`application/exception`、`infrastructure/cache`、`infrastructure/config`、`infrastructure/scheduling`、发号相关 mapper/repository） | 50 | 2343 | 用户两次要求保留；基线 §7 第 151、154 条把三级幂等与发号三路径写成全局规则 |
+| 标准签收链路（`interfaces/web` 剩余、`application/command`、`SignCommandHandler`、`domain/**` 剩余、签收持久化） | 40 | 1823 | 蓝本 §5.1 要求的最小闭环 |
+
+因此"再删"只有两个真实杠杆：把发号机制降级为单一数据库高水位（约 -1200 行主代码与配套测试，需先改基线 §7 第 154 条），或删掉材料登记与交互日志（需先改基线 §5 与 §7 第 153 条）。两者都超出本轮 Spec 范围，需要单独确认，不在这里顺手做。
+
 ## 6. 契约影响与基线回写
 
 对调用方的实际影响只有两条，均在需求第 5 条内：

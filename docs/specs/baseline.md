@@ -161,6 +161,7 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 敏感信息：
 
 - 个人信息、材料内容、访问令牌、外部凭证不得写入日志、指标标签、Trace 属性；诊断输出必须先脱敏。
+- 签收服务不建模人员明细：申请人、主被保险人、出险人、领款人不建立领域对象与结构化字段，只保留 `applicantName` 一个可检索字段，其余内容通过 `extJson` 原样入库；人员明细不得进入日志与对外响应。
 - 跨租户数据不得出现在错误信息中；对外响应不得暴露堆栈、SQL 或外部系统原文。
 
 领域事件与契约：
@@ -177,8 +178,8 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 
 | 对象 | 保留值 | 理由 |
 | --- | --- | --- |
-| HTTP 路径 | `/api/v1/claim-intakes`、`/api/v1/tenant-intakes` | 对外契约，变更需版本化 |
-| 领域错误码 | `SignErrorCode` 全部 6 项的常量名与上报值：`CLAIM_INTAKE_NOT_FOUND`、`INVALID_INTAKE_STATUS`、`INTAKE_SUBMISSION_IN_PROGRESS`、`CLAIM_INTAKE_CONCURRENT_MODIFICATION`、`INTAKE_NUMBER_UNAVAILABLE`、`INTAKE_NUMBER_EXHAUSTED` | 面向调用方的机器可读契约，常量名与上报值一体 |
+| HTTP 路径 | `/api/v1/claim-intakes` | 对外契约，变更需版本化；`/api/v1/tenant-intakes` 已随 2026-10-24 签收服务精简删除，不再是保留契约 |
+| 领域错误码 | `SignErrorCode` 全部 6 项的常量名与上报值：`CLAIM_INTAKE_NOT_FOUND`、`INVALID_INTAKE_STATUS`、`INTAKE_SUBMISSION_IN_PROGRESS`、`CLAIM_INTAKE_CONCURRENT_MODIFICATION`、`INTAKE_NUMBER_UNAVAILABLE`、`INTAKE_NUMBER_EXHAUSTED` | 面向调用方的机器可读契约，常量名与上报值一体；`MALFORMED_REQUEST`、`TENANT_PROTOCOL_NOT_SUPPORTED` 只随租户入口出现，已一并删除 |
 | 指标名 | `claim.intake.submission*`、`claim.intake.number.*` | 已对接的看板与告警依赖 |
 | Redis 键前缀 | `claim:intake:submit:`、`claim:intake:replay:` | 改值会使既有幂等回放缓存整体失效 |
 | 数据库 | 库名 `claim_intake_db`，表名 `t_claim_intake*`，列名 `intake_status` | 属于数据库重设计范畴，与代码改名解耦 |
@@ -187,15 +188,19 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 
 已知偏差（留给后续 Spec）：
 
+未实现项统一标注"暂缓、不排期"：它们是被刻意推迟的能力，不是本轮遗漏，也不构成排期承诺。
+
 | 偏差 | 现状 | 收敛归属 |
 | --- | --- | --- |
-| 租户协议适配位于签收服务而非网关 | `claim-sign-service` 的 `interfaces/tenant/**` 承担协议适配 | Gateway Spec（需把 Servlet 管道重写为响应式过滤器） |
-| 验签、加解密、`TenantResolver`、`SignatureVerifier`、`TenantResponseAdapter` | 未实现，仅有服务间凭证校验 | Gateway Spec |
-| 网关七个职责包（tenant/auth/crypto/protocol/filter/route/limiter） | 仅有启动类，未建空包 | Gateway Spec 随实现创建 |
-| `MaterialStatus`、`SupplementMaterialCommand`、问题件、撤销 | 仅有表，无领域模型与用例 | 签收能力 Spec |
-| `PushTask`、`PushRecord`、`PushReceipt`、`InsurerPushAdapter`、`strategy` | 服务仅有启动类，`push_db` 无表 | 案件推送 Spec |
-| 前端六个功能域 | `src` 仅有占位文件 | 前端 Spec |
+| 租户协议适配的归属 | 签收服务内的实现已于 2026-10-24 精简删除，网关侧未实现；当前只接受平台标准模型与服务间凭证 | Gateway Spec，暂缓、不排期 |
+| 验签、加解密、`TenantResolver`、`SignatureVerifier`、`TenantResponseAdapter` | 未实现，仅有服务间凭证校验 | Gateway Spec，暂缓、不排期 |
+| 网关七个职责包（tenant/auth/crypto/protocol/filter/route/limiter） | 仅有启动类，未建空包 | Gateway Spec 随实现创建，暂缓、不排期 |
+| `MaterialStatus`、`SupplementMaterialCommand`、问题件、撤销 | 仅有表，无领域模型与用例 | 签收能力 Spec，暂缓、不排期 |
+| `PushTask`、`PushRecord`、`PushReceipt`、`InsurerPushAdapter`、`strategy` | 服务仅有启动类，`push_db` 无表 | 案件推送 Spec，暂缓、不排期 |
+| 前端六个功能域 | `src` 仅有占位文件 | 前端 Spec，暂缓、不排期 |
 | `ClaimCase` 聚合归属与案件查询落点 | 架构蓝本未定义；前端有 `case` 功能域，§6 的查询服务清单中没有 `CaseQueryService` | 需先修订本基线再实现 |
+| `t_claim_intake` 的 `applicant_info`、`accident_person_info`、`main_insured_info`、`payee_info` | 代码不再写入这四列；历史行不迁移、不删除 | 数据库重设计 Spec 承接列清理 |
+| 标准入口的请求体解析失败 | 报文不合法落到 `Exception` 处理器返回 `INTERNAL_ERROR` 500，未映射为 400 | 契约版本化 Spec，暂缓、不排期 |
 
 ## 9. 前端约束
 
@@ -236,3 +241,4 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 | --- | --- | --- |
 | 2026-10-23 | 按《Claim Platform 架构设计》整体重写：领域词汇统一为 Sign/Push；后端固定为网关 + 签收服务 + 案件推送服务三服务，明确不新增微服务、不建独立查询服务；应用层固化为"命令 + Handler 写入、QueryService 读取"的混合分层；新增核心命名权威表与保留契约/已知偏差登记表；吸收归档 Spec 的长期结论（三级幂等、发号高水位兜底、Outbox、脱敏红线、平台级全局编号的跨租户读取边界）；Agent 与运营诊断移出产品范围，仅保留为范围之外 | 用户决策：活动文档从零重写、engineering 只校订、归档 Spec 全部删除、以架构设计文档为唯一蓝本 |
 | 2026-10-23 | 细化多租户唯一约束与查询条款：允许平台级全局业务编号，并限定发号所需的跨租户聚合最大值读取 | 项目级评审通过 |
+| 2026-10-24 | 签收服务精简回写：租户协议适配整簇与人员强类型建模删除，`/api/v1/tenant-intakes` 及 `MALFORMED_REQUEST`、`TENANT_PROTOCOL_NOT_SUPPORTED` 移出保留契约；§7 新增"签收服务不建模人员明细"；§8 偏差表补记四列人员 JSON 不再写入与标准入口解析失败 500，未实现项统一标注暂缓、不排期；发号机制、三级幂等、指标名与 Redis 键不变 | 用户确认契约变更后实施 |

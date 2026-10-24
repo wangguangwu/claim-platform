@@ -2,7 +2,7 @@
 
 顺序要求：第 1 条未完成前不得开始任何删除；第 2 条（基线回写）先于代码删除。
 
-- [ ] 1. 取得用户对 `POST /api/v1/tenant-intakes` 删除与请求体四字段移除的明确确认
+- [x] 1. 取得用户对 `POST /api/v1/tenant-intakes` 删除与请求体四字段移除的明确确认
 - [ ] 2. 回写 `docs/specs/baseline.md`：§7 敏感信息补充人员明细边界、§8 保留契约表（HTTP 路径行、错误码行）、§8 已知偏差表（第 1 行现状、其余项标注暂缓、新增四列不再写入）、§12 变更记录
 - [ ] 3. 删除簇 A 主代码：`interfaces/tenant/**`（24 文件）、`TenantSignController`、`TenantSignContextResolver`
 - [ ] 4. 删除簇 A 对外契约：`SignWebContract` 的 `TENANT_INTAKES` 路径与 `PROTOCOL_VERSION` 头/模式，`SignExceptionHandler` 的三个租户 handler，`SignErrorCode` 的 `MALFORMED_REQUEST` 与 `TENANT_PROTOCOL_NOT_SUPPORTED`

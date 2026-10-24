@@ -4,7 +4,7 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 状态 | Draft（待用户确认契约变更） |
+| 状态 | Confirmed —— 2026-10-24 用户确认执行第 5 条契约变更，并要求范围尽量删到底、先做文档设计再落代码 |
 | 所属限界上下文 | 理赔签收（Sign） |
 | 模块 | `claim-platform-backend/claim-sign-service` |
 | 功能分支 | `refactor/sign-service-slimming` |
