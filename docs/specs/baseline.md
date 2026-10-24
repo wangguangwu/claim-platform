@@ -13,7 +13,7 @@ Claim Platform（理赔平台）负责理赔链路的**前段交互**与**后段
 
 前段的内部链路固定为：`签收 → 材料处理 → 承保查询 → 审核同步 → 等待内部结果 → 案件生成`。承保系统、审核系统、内部案件系统是签收服务的外部依赖，其内部处理不属于平台范围。
 
-一次理赔申请签收在领域内统一称为 `Sign`，其平台标识统一称为 `SignNo`。平台不使用"受理（Intake）"作为领域词汇；代码与数据库中仍存在的 `intake` 命名属历史遗留，必须向 `Sign` 收敛，逐项归属见 §8「蓝本收敛项」。
+一次理赔申请签收在领域内统一称为 `Sign`，其平台标识统一称为 `SignNo`。平台不使用"受理（Intake）"作为领域词汇；任何遗留的 `intake` 命名都必须向 `Sign` 收敛。
 
 ## 2. 核心命名
 
@@ -44,7 +44,7 @@ Claim Platform（理赔平台）负责理赔链路的**前段交互**与**后段
 | 推送记录 | PushRecord | Push |
 | 推送回执 | PushReceipt | Push |
 | 租户上下文 | TenantContext | Edge & Platform |
-| 报文协议适配器 | TenantProtocolAdapter | Edge & Platform（网关侧，未实现） |
+| 报文协议适配器 | TenantProtocolAdapter | Edge & Platform（网关侧） |
 | 租户业务语义适配器 | Adapter（签收防腐层内，具体类型名由 Spec 定） | Sign |
 | 保司推送适配器 | InsurerPushAdapter | Push |
 
@@ -56,7 +56,7 @@ Claim Platform（理赔平台）负责理赔链路的**前段交互**与**后段
 - `application` 一词只表示 DDD 应用层，不得用作业务概念（不存在 `Application` 领域对象、`applicationNo` 业务号）。
 - 推送业务统一使用 `Push`，不引入 `Delivery`、`Send`、`Transmit` 等同义命名。
 - 撤销统一使用 `Revoke`（状态 `REVOKED`、交互 `SIGN_REVOKE`、`Sign` 聚合行为 `sign.revoke(...)`），不再使用 `Withdraw`、`withdrawal`、`CASE_REVOKE`。
-- 签收整体状态只用 `SignStatus`，所处环节只用 `SignStage`，不得把环节语义塞进 `SignStatus`（现存 7 值混合枚举见 §8）。
+- 签收整体状态只用 `SignStatus`，所处环节只用 `SignStage`，不得把环节语义塞进 `SignStatus`。
 - 跨系统交互只使用 §10 登记的 `InteractionType` 常量，不引入同义动作名（如 `POLICY_QUERY`、`AUDIT_PUSH`）。
 
 ## 3. 技术约束
@@ -64,7 +64,7 @@ Claim Platform（理赔平台）负责理赔链路的**前段交互**与**后段
 - 后端：Java 17、Spring Boot 3.2、Spring Cloud、Spring Cloud Alibaba、MySQL 8、Redis 7、RocketMQ、XXL-Job。
 - 前端：Vue 3、TypeScript、Vite、Pinia、Vue Router、Axios。
 - 可观测：OpenTelemetry、Prometheus、Grafana、Loki。
-- 容器：Docker、Docker Compose；`docker/` 编排与建表脚本已于 2026-10-24 随实现下线，本地中间件环境由交付能力的 Spec 一并重建。
+- 容器：Docker、Docker Compose；本地中间件编排与建表脚本由交付相应能力的 Spec 一并提供。
 - 对象映射：MapStruct（版本以根 `pom.xml` 为准），只做对象转换，不承载业务规则与状态流转。
 - 签收服务的存储与中间件固定为 MySQL（业务事实）、Redis（发号、缓存、锁）、RocketMQ（异步任务）、XXL-Job（恢复与对账）、OSS（材料原文）；不引入其他存储。材料原文不落库，库内只保留材料信息、来源与地址引用。
 - 版本以根 `pom.xml` 与各模块 `package.json` 为准，不得自行升级 JDK、Spring Boot 或核心依赖。
@@ -72,7 +72,7 @@ Claim Platform（理赔平台）负责理赔链路的**前段交互**与**后段
 
 ## 4. 工程结构与服务边界
 
-后端只有三个可执行服务：网关、签收服务、案件推送服务。**不增加新的微服务，也不建立独立查询服务**。下列结构是目标形态；当前仓库只保留了后端骨架，前端工程与 `docker/` 环境已删除，见 §8。
+后端只有三个可执行服务：网关、签收服务、案件推送服务。**不增加新的微服务，也不建立独立查询服务**。下列结构是目标形态。
 
 ```text
 claim-platform
@@ -99,7 +99,7 @@ flowchart LR
     SIGN <--> CASE[内部案件系统]
 ```
 
-- `claim-common` 只能包含无领域含义的技术能力和稳定共享契约（当前仅有 `ApiResult<T>` 响应信封）；业务实体、Repository、领域规则和跨上下文共享表不得进入该模块。
+- `claim-common` 只能包含无领域含义的技术能力和稳定共享契约（包括 `ApiResult<T>` 响应信封）；业务实体、Repository、领域规则和跨上下文共享表不得进入该模块。
 - 三个子项目职责保持独立，不跨项目混合业务；一个服务的领域类型不得被另一个服务直接引用。
 - 每个限界上下文独立拥有自己的数据库及其建表、变更脚本；禁止跨库 SQL、跨模块 Repository、共享业务实体和共享业务表。
 - 跨上下文只能通过版本化同步 API、领域事件或显式反腐层通信。
@@ -156,7 +156,7 @@ com.claim.platform.sign
 └─ infrastructure  persistence（dataobject / mapper / converter / repository）/ cache / mq / oss / insured / audit
 ```
 
-`insured` 与 `audit` 分别承载承保系统、审核系统的调用；新增聚合（`SignTask`、`CaseRelation`、`InteractionLog`）按同一条规则在 `domain` 下建自己的聚合包。定时恢复与技术配置类目录按实际需要落在 `infrastructure` 内，不预先建立空包。当前 `interfaces/web/*`、`application/{handler,service,result,port,exception}`、`domain/{model,repository,service,exception}` 的扁平分包属收敛对象，见 §8。
+`insured` 与 `audit` 分别承载承保系统、审核系统的调用；新增聚合（`SignTask`、`CaseRelation`、`InteractionLog`）按同一条规则在 `domain` 下建自己的聚合包。定时恢复与技术配置类目录按实际需要落在 `infrastructure` 内，不预先建立空包。
 
 Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；架构蓝本中的 `com.xxx.claim.*` 只是占位写法。
 
@@ -226,16 +226,9 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 - 事件只追加兼容字段；破坏性变更必须发布新版本事件，不得静默修改旧事件含义；消费者必须把重复投递、乱序、失败重试和人工介入纳入设计。
 - API 与事件只暴露调用方需要的稳定契约；对外契约（HTTP 路径、请求响应字段、错误码字符串、指标名、Redis 键结构）的变更必须由专门的契约版本化 Spec 承接。
 
-## 8. 保留契约与已知偏差
+## 8. 保留对外契约
 
-代码现状与签收域蓝本之间存在以下差距。**保留项是刻意不变的外部契约，不是漏改**；偏差项必须由后续 Spec 收敛，新增差异不得继续落入既有偏差。
-
-2026-10-24 两次基线变更叠加，构成当前仓库状态：
-
-1. **裁决口径**：蓝本与代码冲突时以蓝本为准，代码向蓝本收敛。原先"表名与列名属数据库重设计范畴、与代码改名解耦"的保留口径作废，`t_claim_intake*` 与 `intake_status` 转为待收敛偏差。
-2. **实现清空**：同日签收服务的业务代码、发号 lua 脚本、`docker/` 编排与建表脚本、前端工程整体删除，仓库只剩可构建骨架（启动类 + pom + `application.yml`）与文档，锚点 tag `code-final-20261024`。因此 §8 各项不再是"改造既有代码"，而是**按蓝本从零实现**。
-
-保留契约（重建时必须交付的相同值，不是"改不动的既有值"）：
+以下是重建或演进时必须保持的外部兼容值。它们不是历史实现细节，也不是待办清单；变更必须由契约版本化 Spec 承接。
 
 | 对象 | 保留值 | 说明 |
 | --- | --- | --- |
@@ -243,48 +236,13 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 | 领域错误码 | `SignErrorCode` 全部 6 项的常量名与上报值：`CLAIM_INTAKE_NOT_FOUND`、`INVALID_INTAKE_STATUS`、`INTAKE_SUBMISSION_IN_PROGRESS`、`CLAIM_INTAKE_CONCURRENT_MODIFICATION`、`INTAKE_NUMBER_UNAVAILABLE`、`INTAKE_NUMBER_EXHAUSTED` | 面向调用方的机器可读契约，常量名与上报值一体；状态模型重构只改内部状态，不改上报值 |
 | 指标名 | `claim.intake.submission*`、`claim.intake.number.*` | 外部看板与告警按这些名字对接，重建时沿用 |
 | Redis 键前缀 | `claim:intake:submit:`、`claim:intake:replay:` | 幂等回放缓存与锁的键结构，重建时沿用 |
-| 数据库 | 库名 `claim_intake_db` | 蓝本未定义库名；表名与列名已移出保留契约，见下方蓝本收敛项 |
+| 数据库 | 库名 `claim_intake_db` | 表名与列名按第 4 节的数据表归属执行 |
 
-蓝本未涉及的对外契约（HTTP 路径、错误码上报值、指标名、Redis 键前缀、库名）一律维持保留，不因代码收敛或实现清空而变更；需要变更时由契约版本化 Spec 承接。
-
-配置命名空间（`claim.sign.*`）、环境变量（`CLAIM_SIGN_*`）、Java 包根、类型与字段命名已完成迁移，不在此列。
-
-### 蓝本收敛项（按蓝本从零实现）
-
-本表只登记目标与承接 Spec，不构成排期；每项由用户单独启动对应 Spec。
-
-| 差距 | 蓝本目标 | 承接 Spec |
-| --- | --- | --- |
-| 状态模型 | `signStatus` 5 态 + `currentStage` 5 阶段，含合法转换与推进规则；不得复制历史 7 值混合枚举 | 签收状态机 Spec |
-| 建表脚本 | 按 §4 新建 `t_claim_sign*` 六张表，状态列 `sign_status` + `current_stage`；不重建 `t_claim_intake*` | 签收库重设计 Spec（含 `docker/` 环境重建） |
-| 任务与异步链路 | `SignTask` 承担执行、幂等、重试、超时恢复；`infrastructure/insured`、`infrastructure/audit` 隔离承保与审核系统 | 签收异步任务 Spec |
-| 材料模型 | `materialNo` + `MaterialStatus` + 材料来源与 OSS 引用，`MATERIAL_PROCESS` 任务链路；材料原文进 OSS 不落库 | 材料处理 Spec |
-| 问题件模型 | `ClaimIssue` 承载原因、状态、回复、补充材料与恢复阶段（MVP 不建 `IssueReply`），含 `issueNo` 业务号 | 问题件 Spec |
-| 撤销 | `sign.revoke(...)`、状态 `REVOKED`、入口在 `interfaces/sign`；不使用 `withdraw` / `withdrawal` / `CASE_REVOKE` | 随签收状态机 Spec |
-| 分层包结构 | 按 §6 建立 `interfaces/{sign,material,issue,internal,acl}`、`application/{command,query,task}`、`domain/<聚合>`、`infrastructure/{persistence,cache,mq,oss,insured,audit}`；目录随实现创建 | 各能力 Spec 落地时按 §6 建立 |
-| 交互审计 | §10 的 13 项 `InteractionType` 与十字段日志契约，含 `source_system`、`cost_ms` | 随各能力 Spec |
-| 租户业务语义防腐层 | `Adapter` + `Validator` + `Converter` + `Mapper`，只做业务语义转换，不碰报文协议与安全 | 租户接入 Spec |
-| 发号与幂等 | Redis 计数器 + 数据库高水位兜底 + 对账校正 + `sign_no` 唯一键，三级幂等按 §7 落地（含被删的 lua 脚本重写） | 签收状态机 Spec 或独立发号 Spec |
-| 案件关系 | `CaseRelation` 归 Sign，案件生成时绑定并把 `Sign` 推进 `COMPLETED` | 案件生成回写 Spec |
-
-### 未实现项（暂缓、不排期）
-
-刻意推迟的能力，不是遗漏，也不构成排期承诺：
-
-| 偏差 | 现状 | 收敛归属 |
-| --- | --- | --- |
-| 网关报文协议适配 `TenantProtocolAdapter`、验签、加解密、`TenantResolver`、`SignatureVerifier`、`TenantResponseAdapter` | 未实现，`claim-gateway` 只有启动类 | Gateway Spec，暂缓、不排期 |
-| 网关七个职责包（tenant/auth/crypto/protocol/filter/route/limiter） | 未建空包 | Gateway Spec 随实现创建，暂缓、不排期 |
-| `PushTask`、`PushRecord`、`PushReceipt`、`InsurerPushAdapter`、`strategy` | `claim-case-push-service` 只有启动类，`push_db` 无库无表 | 案件推送 Spec，暂缓、不排期 |
-| 前端工程与六个功能域 | `claim-platform-frontend/` 已删除，仓库无前端代码 | 前端 Spec 从 0 建立，暂缓、不排期 |
-| 历史库中 `applicant_info`、`accident_person_info`、`main_insured_info`、`payee_info` 四列 | 仓库已无建表脚本，新库不含这四列（§7 不建模人员明细）；线上或备份库中的历史列不迁移、不清理 | 数据库重设计 Spec 处理历史列 |
-| 案件查询服务（`CaseQueryService`） | 蓝本未定义案件查询落点，§6 查询服务清单也没有该项；案件业务事实归内部案件系统 | 案件生成回写 Spec 或前端 Spec 提出需求后再定 |
-
-已关闭：`ClaimCase` 聚合归属——案件业务事实由内部案件系统拥有，签收侧只维护 `Sign → ClaimCase` 关系，见 §5 与 §11。
+未列出的对外契约不得据此推断为可变更；需要变更时同样由契约版本化 Spec 承接。
 
 ## 9. 前端约束
 
-`claim-platform-frontend/` 工程已于 2026-10-24 随实现清空删除；下列约束在建工程时同样适用，不是现状描述。
+`claim-platform-frontend/` 建立后必须遵守下列约束。
 
 - 前端位于 `claim-platform-frontend/`，按业务能力组织为 `sign`、`material`、`issue`、`case`、`push`、`tenant` 六个功能域，而不是按后端服务名组织。
 - 前端只负责页面与交互，不实现业务规则；统一通过 `claim-gateway` 暴露的版本化 API 访问后端，不直连领域服务、数据库、消息系统或外部保司系统。
@@ -322,18 +280,8 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 - 功能 Spec 只写本功能的增量需求与设计，公共内容引用本文件而不复制。
 - 功能实现只能细化本文件，不能绕过或降低其中的约束；与 §8 保留契约冲突时，以本文件为准。
 - 修改对外 API、领域事件、共享契约、数据库边界、租户模型或功能域划分时，必须先更新本文件并经用户确认，再动代码。
-- 功能交付后其 Spec 直接删除，其中长期有效的结论（已定命名、保留契约、既定约束、已知偏差）必须回写本文件的对应章节。
+- 功能交付后其 Spec 直接删除，其中长期有效的结论（已定命名、保留契约、既定约束）必须回写本文件的对应章节。
 - 实现细节不进本文件，由功能 Spec 设计：SQL DDL 与迁移脚本、`SignNo` 格式与 Redis Key 及恢复逻辑、Task 状态机与重试与超时恢复、MQ Topic 与 Tag 与 Consumer、Cache Key 与 TTL、租户 Adapter 落地、承保与审核接口、问题件规则、幂等键取值、单元测试与集成测试与压测。
+- 本文件不登记实现进度、能力待办或历史过程：当前仓库状态见 README，当前交付范围见活动 Feature Spec，历史决策通过 Git 提交追溯。
 - 开发链路固定为：架构（本文件）→ `requirements.md` → `design.md` → `tasks.md` → 实现。
 - 规则冲突时的权威顺序：`docs/specs/baseline.md` → `docs/engineering/*.md` → 代码与测试现状。
-
-## 变更记录
-
-| 日期 | 变更 | 评审 |
-| --- | --- | --- |
-| 2026-10-23 | 按《Claim Platform 架构设计》整体重写：领域词汇统一为 Sign/Push；后端固定为网关 + 签收服务 + 案件推送服务三服务，明确不新增微服务、不建独立查询服务；应用层固化为"命令 + Handler 写入、QueryService 读取"的混合分层；新增核心命名权威表与保留契约/已知偏差登记表；吸收归档 Spec 的长期结论（三级幂等、发号高水位兜底、Outbox、脱敏红线、平台级全局编号的跨租户读取边界）；Agent 与运营诊断移出产品范围，仅保留为范围之外 | 用户决策：活动文档从零重写、engineering 只校订、归档 Spec 全部删除、以架构设计文档为唯一蓝本 |
-| 2026-10-23 | 细化多租户唯一约束与查询条款：允许平台级全局业务编号，并限定发号所需的跨租户聚合最大值读取 | 项目级评审通过 |
-| 2026-10-24 | 签收服务精简回写：租户协议适配整簇与人员强类型建模删除，`/api/v1/tenant-intakes` 及 `MALFORMED_REQUEST`、`TENANT_PROTOCOL_NOT_SUPPORTED` 移出保留契约；§7 新增"签收服务不建模人员明细"；§8 偏差表补记四列人员 JSON 不再写入与标准入口解析失败 500，未实现项统一标注暂缓、不排期；发号机制、三级幂等、指标名与 Redis 键不变 | 用户确认契约变更后实施 |
-| 2026-10-24 | 关闭上一条登记的解析失败偏差：标准入口请求体不可解析改为 400 `REQUEST_VALIDATION_FAILED`，不返回报文内容；删除只服务于已废弃租户协议映射的死类型 `MaterialType`。§8 偏差表其余项均为"能力未实现"，需各自 Spec 承接 | 用户要求处理已知偏差 |
-| 2026-10-24 | 吸收《Claim Sign Service 架构设计》为签收域唯一依据：§1 补前段内部链路与承保/审核/内部案件系统三个外部依赖；§2 增 `SignStage`、`SignTask`、`CaseRelation`、`InteractionLog`、`IN`/`OUT` 与"撤销统一 `Revoke`"禁用规则；§3 增 MapStruct 与签收域存储清单（含 OSS）；§4 新增签收域六张表与"业务查询只用业务号"；§5 分工改为"网关只管报文与安全，租户业务语义归签收 `interfaces/acl`"；§6 分层包结构与用例组织按蓝本重排；§7 新增"状态与阶段""异步任务与缓存边界"；§10 新增 `InteractionLog` 字段与 13 项 `InteractionType`；§12 声明蓝本不再单独维护文件并划出实现细节边界。**冲突裁决**：状态模型拆分、`t_claim_sign*` 表名与状态列、Sign 侧业务语义防腐层、分层包结构、`SignTask` 与异步链路、`CaseRelation` 归属一律以蓝本为准，代码转为 §8「蓝本收敛项」；撤销上一条"偏差表其余项均为能力未实现"的口径——`MaterialStatus`、问题件、撤销改列收敛项；原"表名与列名属数据库重设计、与代码解耦"的保留口径作废；蓝本未涉及的对外契约（HTTP 路径、错误码上报值、指标名、Redis 键前缀、库名）维持保留 | 用户裁决：该文档为主文档，后续 Spec 以它为基准，过往代码基于新文档调整 |
-| 2026-10-24 | 既有实现清空回写：签收服务业务代码与发号 lua 脚本、`docker/`（建表 SQL、compose、`.env.example`、README）、`claim-platform-frontend/`、已交付的 `docs/specs/sign-service-slimming/` 一并删除，仓库只剩可构建骨架（启动类 + pom + `application.yml` + `logback-spring.xml`）与文档，恢复锚点 tag `code-final-20261024`。§3 容器约束改为"`docker/` 已下线、由 Spec 重建"；§4 声明结构为目标形态、新建表直接用 `t_claim_sign*` 不再产生 `intake` 遗留；§8 保留契约改述为"重建时必须交付的相同值"，蓝本收敛项去掉"改造既有代码"表述、改为按蓝本从零实现并补发号与幂等一项，未实现项更新网关/推送/前端现状并把人员四列偏差改为历史库遗留；§9 标注前端约束为重建时适用。删除后 `mvn verify` 通过（四模块 jar 产出，仅 `ApiResultTest` 2 项测试） | 用户指令：提交后保留文档，其余代码、SQL、配置删除，在 main 操作 |

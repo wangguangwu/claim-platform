@@ -9,7 +9,7 @@
 
 ## 项目结构
 
-2026-10-24 签收域蓝本确立后，既有实现与建表、容器脚本整体下线，仓库当前只有可构建的后端骨架与文档；前端工程与 `docker/` 环境已删除，重建时由对应 Spec 交付。
+仓库当前只有可构建的后端骨架与文档；前端工程、建表脚本与本地容器环境尚未重建。目标架构以 [项目基线](docs/specs/baseline.md) 为准，具体能力由对应 Feature Spec 交付。
 
 ```text
 claim-platform/
@@ -30,7 +30,7 @@ claim-platform/
 | 模块 | 职责 | 默认端口 | 当前状态 |
 | --- | --- | --- | --- |
 | `claim-gateway` | 报文协议、认证、验签、加解密、限流、路由、Trace | 8080 | 仅启动类，无任何网关能力 |
-| `claim-sign-service` | 签收提交与查询、材料处理、承保查询、审核同步、问题件、撤销 | 8081 | 仅启动类与配置文件；业务实现已于 2026-10-24 清空，按基线 §8 从蓝本重新实现 |
+| `claim-sign-service` | 签收提交与查询、材料处理、承保查询、审核同步、问题件、撤销 | 8081 | 仅启动类与配置文件 |
 | `claim-case-push-service` | 推送任务、推送记录、回执、推送策略 | 8082 | 仅启动类 |
 | `claim-common` | 响应信封 `ApiResult<T>` 等稳定技术契约 | — | 仅 `ApiResult` 与其单元测试，无领域规则 |
 
@@ -45,21 +45,14 @@ claim-platform/
 
 约束的完整表述见 [docs/specs/baseline.md](docs/specs/baseline.md) §3。
 
-## 工程治理与渐进披露
+## 文档入口
 
-| 文件或目录 | 职责 | 是否作为实现依据 |
-| --- | --- | --- |
-| [AGENTS.md](AGENTS.md) | 任务入口与规则归属导航 | 是，作为规则入口 |
-| [docs/specs/baseline.md](docs/specs/baseline.md) | 长期有效的公共需求、命名权威、架构约束，以及已吸收的签收域架构蓝本 | 是，优先级最高 |
-| `docs/specs/<feature-name>/` | Feature 级改动的需求、设计与任务 | 是，该功能的直接依据 |
-| [docs/engineering/workflow.md](docs/engineering/workflow.md) | 开发生命周期与全部 Git 操作 | 是 |
-| [docs/engineering/specification.md](docs/engineering/specification.md) | Spec 的建与不建、职责边界、交付后清理 | 是 |
-| [docs/engineering/implementation.md](docs/engineering/implementation.md) | 代码修改规范与 HTTP 契约细则 | 是，改代码前读取 |
-| `README.md` | 项目导航与技术基线速览 | 否 |
+- [AGENTS.md](AGENTS.md)：任务入口与规则导航。
+- [项目基线](docs/specs/baseline.md)：唯一的长期架构与公共约束来源。
+- `docs/specs/<feature-name>/`：活动功能的需求、设计与任务。
+- `docs/engineering/`：开发流程、Spec 规范与代码规范。
 
-历史决策不单独归档：已交付功能的长期结论回写基线，过程性内容随 Spec 目录删除，需要追溯时用 `git log` 与提交说明。
-
-任务从 [AGENTS.md](AGENTS.md) 进入，按其执行顺序读取命中当前改动的文件，不为简单任务加载无关规范；本 README 只作导航，不替代需求或规范。
+本 README 只提供导航和当前状态，不作为需求或架构规则依据。历史过程通过 `git log` 追溯；已交付功能的长期结论回写项目基线。
 
 ## 构建与验证
 
@@ -80,6 +73,6 @@ java -jar claim-platform-backend/claim-sign-service/target/claim-sign-service-0.
 java -jar claim-platform-backend/claim-case-push-service/target/claim-case-push-service-0.1.0-SNAPSHOT.jar
 ```
 
-## 已知偏差
+## 架构状态
 
-签收域蓝本与代码现状的差距、刻意保持不变的对外契约（HTTP 路径、错误码字符串、指标名、Redis 键前缀、库名），以及 2026-10-24 实现清空后的重建起点，统一登记在 [docs/specs/baseline.md](docs/specs/baseline.md) 第 8 节，本 README 不重复维护。蓝本与代码不一致的地方以基线为准，代码向基线收敛。
+当前代码尚未实现目标业务能力；实现必须从 [项目基线](docs/specs/baseline.md) 出发，并通过活动 Feature Spec 定义本次交付的增量。对外兼容契约由基线第 8 节统一维护。
