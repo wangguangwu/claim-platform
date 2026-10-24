@@ -66,6 +66,7 @@ Claim Platform（理赔平台）负责理赔链路的**前段交互**与**后段
 - 可观测：OpenTelemetry、Prometheus、Grafana、Loki。
 - 容器：Docker、Docker Compose；本地中间件编排与建表脚本由交付相应能力的 Spec 一并提供。
 - 持久化：所有持久化服务统一使用 MyBatis-Plus（版本以根 `pom.xml` 为准）；不使用 JPA。
+- 关系型表不建立物理外键；聚合间关联通过稳定业务标识与必要索引维护，写入时由应用层校验关联事实，删除与状态变更不得依赖数据库级级联。
 - 对象映射：MapStruct（版本以根 `pom.xml` 为准），只做对象转换，不承载业务规则与状态流转。
 - 签收服务的存储与中间件固定为 MySQL（业务事实）、Redis（发号、缓存、锁）、RocketMQ（异步任务）、XXL-Job（恢复与对账）、OSS（材料原文）；不引入其他存储。材料原文不落库，库内只保留材料信息、来源与地址引用。
 - 版本以根 `pom.xml` 与各模块 `package.json` 为准，不得自行升级 JDK、Spring Boot 或核心依赖。
@@ -115,6 +116,7 @@ flowchart LR
 | `t_claim_sign` | 签收主数据与业务状态 |
 | `t_claim_sign_material` | 材料信息、来源、OSS 引用与单材料处理状态 |
 | `t_claim_sign_task` | 异步任务：执行、幂等、重试、超时恢复 |
+| `t_claim_sign_task_log` | 签收子流程任务的追加式执行日志：开始、结束、耗时、重试与结果摘要 |
 | `t_claim_sign_issue` | 问题件：原因、状态、回复、补充材料、恢复阶段 |
 | `t_claim_sign_case_rel` | `Sign → ClaimCase` 关系 |
 | `t_claim_sign_interaction_log` | 跨系统交互日志 |
@@ -178,7 +180,7 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 
 聚合与领域行为：
 
-- 签收域的模型固定为六个：`Sign`（业务标识 `tenantCode + externalApplyNo`，平台标识 `signNo`）、`SignTask`、`Material`、`ClaimIssue`、`CaseRelation`、`InteractionLog`；不在签收域新增其他聚合，新增必须先修订本文件。
+- 签收域的模型固定为六个：`Sign`（业务标识 `tenantCode + externalApplyNo`，平台标识 `signNo`）、`SignTask`、`Material`、`ClaimIssue`、`CaseRelation`、`InteractionLog`；不在签收域新增其他聚合，新增必须先修订本文件。`t_claim_sign_task_log` 是 `SignTask` 的追加式执行历史，不单独构成聚合。
 - `SignTask` 的任务类型固定为 `MATERIAL_PROCESS`、`INSURED_QUERY`、`AUDIT_SYNC`、`ISSUE_NOTIFY`、`ISSUE_REPLY_SYNC`。
 - 聚合必须显式定义标识、一致性边界、不变量、合法状态转换、并发策略与幂等键；这些规则不分散到 Controller、Repository 或定时任务中。聚合之间通过领域事件最终一致协作。
 - 撤销是 `Sign` 聚合的领域行为（`sign.revoke(...)`），不单独建立 Withdrawal 聚合；问题件建模为独立 `ClaimIssue`，MVP 不单独建立 `IssueReply`，回复内容、补充材料与流程恢复阶段都记在 `ClaimIssue` 内。
@@ -205,6 +207,7 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 异步任务与缓存边界：
 
 - 异步链路固定为 `SignTask → RocketMQ → Consumer`；执行、幂等、重试、并发控制与超时恢复由任务承担，`Sign` 主模型不直接执行异步逻辑。
+- 每个签收子流程任务必须记录创建、开始、结束、重试或终止等执行历史，以及本次尝试的耗时与结果摘要；跨系统调用另按 §10 记录 `InteractionLog`。任务执行历史与交互审计都不得记录材料原文和个人信息。
 - Consumer 必须支持重复消费，按 `taskNo` 或业务幂等键去重并记录重复处理结果。
 - 查询采用 Cache-Aside，MySQL 是业务状态的事实来源；缓存不得参与状态推进、Task 执行、并发判断与撤销判断。
 - 承保查询、审核同步、问题件通知等外部调用必须携带业务幂等键（`signNo` 或 `taskNo`），重复调用不得产生重复业务副作用。
@@ -272,7 +275,7 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 
 跨系统交互审计（`InteractionLog`）：
 
-- 每次跨系统交互记录一条日志，字段固定为 `interactionType`、`direction`、`sourceSystem`、`targetSystem`、`requestId`、`traceId`、`result`、`errorCode`、`message`、`costMs`。
+- 每次跨系统交互记录一条日志，字段固定为 `signNo`、`taskNo`（已知时）、`interactionType`、`direction`、`sourceSystem`、`targetSystem`、`requestId`、`traceId`、`result`、`errorCode`、`message`、`costMs`。
 - `direction`：`IN` = 其他系统 → `claim-sign-service`，`OUT` = `claim-sign-service` → 其他系统；真实调用双方由 `sourceSystem + targetSystem` 表达。
 - `InteractionType` 取值固定为 13 项，新增取值必须先修订本文件：`SIGN_SUBMIT`、`SIGN_QUERY`、`SIGN_REVOKE`、`MATERIAL_SUBMIT`、`MATERIAL_FETCH`、`INSURED_QUERY`、`AUDIT_SYNC`、`AUDIT_RESULT`、`AUDIT_ISSUE`、`ISSUE_NOTIFY`、`ISSUE_REPLY`、`CASE_BIND`、`CASE_COMPLETE`。
 - 交互日志只记摘要与错误码，不记请求响应原文、材料内容与个人信息，§7 的脱敏红线同样适用。
