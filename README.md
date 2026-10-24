@@ -14,13 +14,14 @@
 ```text
 claim-platform/
 ├── docs/
-│   ├── specs/baseline.md         # 唯一的长期架构与公共约束来源
+│   ├── architecture/claim-sign-service.md  # 签收服务域内架构基准
+│   ├── specs/baseline.md         # 平台级长期公共约束来源
 │   └── engineering/              # 流程、Spec 与代码规范
 ├── AGENTS.md                     # Agent 开发入口与规则导航
 └── README.md                     # 本文件
 ```
 
-目标工程结构、服务职责与数据表归属见 [docs/specs/baseline.md](docs/specs/baseline.md) §4、§5，本文件不重复。四个后端模块及其默认端口速览：`claim-gateway`（8080）、`claim-sign-service`（8081）、`claim-case-push-service`（8082）、共享技术模块 `claim-common`。
+目标工程结构、服务职责与数据表归属见 [docs/specs/baseline.md](docs/specs/baseline.md) §4、§5，本文件不重复；签收服务的分层、状态机、数据模型与核心时序见 [docs/architecture/claim-sign-service.md](docs/architecture/claim-sign-service.md)。四个后端模块及其默认端口速览：`claim-gateway`（8080）、`claim-sign-service`（8081）、`claim-case-push-service`（8082）、共享技术模块 `claim-common`。
 
 ## 技术基线
 
@@ -34,7 +35,8 @@ claim-platform/
 ## 文档入口
 
 - [AGENTS.md](AGENTS.md)：所有协作 Agent 的强制任务入口与规则导航。
-- [项目基线](docs/specs/baseline.md)：唯一的长期架构与公共约束来源。
+- [项目基线](docs/specs/baseline.md)：平台级长期公共约束来源。
+- [签收服务架构基准](docs/architecture/claim-sign-service.md)：签收域内分层、状态机、数据模型、时序与补偿。
 - `docs/specs/<feature-name>/`：活动功能的需求、设计与任务。
 - `docs/engineering/`：开发流程、Spec 规范与代码规范。
 

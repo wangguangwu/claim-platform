@@ -6,7 +6,7 @@
 
 1. 确认需求来自当前对话还是 `docs/specs/<feature-name>/`，并明确验收口径（编译、测试、页面行为）。
 2. 判定改动粒度：Feature 级改动需要先建立 Spec（判定标准见 `docs/engineering/specification.md`）；轻量改动不建 Spec，直接进入流程，但仍受基线约束。
-3. 读取 `docs/specs/baseline.md` 中与任务相关的章节：产品范围、核心规则、架构约束、全局需求。
+3. 读取 `docs/specs/baseline.md` 中与任务相关的章节：产品范围、核心规则、技术约束、服务边界、对外契约。任务落在签收服务时同时读取 `docs/architecture/claim-sign-service.md` 的域内架构基准。
 4. 需求含义、业务规则或数据归属不确定时先向用户确认，不猜。
 
 ## 2. 工作区检查

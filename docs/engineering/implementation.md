@@ -25,7 +25,7 @@
 | 应用命令 / 结果 | `Command` / `Result` |
 | 写入用例的 command handler | `CommandHandler`（如 `SignCommandHandler`、`MaterialCommandHandler`） |
 | 读取用例的查询服务 | `QueryService`（如 `SignQueryService`、`PushTaskQueryService`） |
-| 协议与外部系统适配器 | `Adapter`（如 `TenantProtocolAdapter`、`InsurerPushAdapter`） |
+| 协议与外部系统适配器 | `Adapter`（如 `TenantAdapter`、`InsurerPushAdapter`） |
 | 转换器 | `Converter` |
 | 外部客户端 | `Client` |
 | MQ 消费者 | `Consumer` |
@@ -84,7 +84,7 @@
 
 - 统一使用 SLF4J（`@Slf4j`）和占位符：`log.info("签收申请创建成功，signNo={}", signNo)`；禁止字符串拼接。
 - 异常日志保留完整堆栈：`log.error("签收申请处理失败，signNo={}", signNo, e)`；不得只记 `e.getMessage()`。
-- 日志优先携带能定位业务问题的标识：`tenantCode`、`signNo`、`externalApplyNo`、`caseNo`、`taskNo`、`traceId`。
+- 日志优先携带能定位业务问题的标识：`tenantCode`、`signNo`、`externalApplyNo`、`caseNo`、`traceId`。
 - 日志内容不得触碰 `docs/specs/baseline.md` 的敏感信息红线；高频循环中避免打印大量 `info`。
 
 ### Spring 与 Lombok
