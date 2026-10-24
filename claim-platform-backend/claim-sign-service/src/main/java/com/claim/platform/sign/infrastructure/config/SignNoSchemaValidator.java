@@ -36,7 +36,8 @@ public class SignNoSchemaValidator implements InitializingBean {
             log.error("claim sign no schema validation failed table={} index={}",
                     SignTable.NAME, SignTable.INDEX_UK_SIGN_NO);
             throw new IllegalStateException(
-                    "数据库缺少全局唯一索引 uk_sign_no(sign_no)，请先执行存量库迁移脚本");
+                    "数据库缺少全局唯一索引 uk_sign_no(sign_no)，请按 docker/README.md"
+                            + "「存量库补建签收号唯一索引」补建后重启");
         }
         log.info("claim sign no schema validated table={} index={}",
                 SignTable.NAME, SignTable.INDEX_UK_SIGN_NO);
