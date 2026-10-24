@@ -63,7 +63,7 @@
 
 - 所属限界上下文：Sign；实现模块 `claim-sign-service`。网关只做认证、`tenantCode` 识别、路由与入口限流；租户协议与业务语义差异由签收适配层承载（基线 §5）。
 - 签收服务拥有 `Sign`、`Material`、`ClaimIssue`、`CaseRelation`、`InteractionLog` 事实；不写案件推送库，不持有 `ClaimCase` 业务字段。
-- HTTP 请求响应字段、MQ Topic/Tag、问题件的业务定位标识尚未确认；确认前须先回写基线 §8 与架构基准，再创建 Controller、DTO 和消息定义。
+- 本 Feature 依赖 [平台契约版本化 Spec](../platform-contract-versioning/requirements.md) 完成签收 HTTP 字段、MQ Topic/Tag、问题件业务定位标识与下游错误映射的确认及基线回写；未完成前不得创建 Controller、DTO 与消息定义。
 
 ## 验收标准
 

@@ -2,8 +2,6 @@
 
 架构口径见 [签收服务架构基准](../../architecture/claim-sign-service.md)，实现决策与落点见 [design.md](design.md)。
 
-- [ ] 确认签收、材料、问题件、撤销的 HTTP 字段与 MQ Topic/Tag，回写基线 §8 与架构基准。
-- [ ] 确认问题件的业务定位标识（多次打回与回复如何绑定具体 `ClaimIssue`），回写基线 §4 业务标识与架构基准 §3。
 - [ ] 创建 `Sign`、`Material`、`ClaimIssue`、`CaseRelation`、`InteractionLog` 五聚合，定义标识、不变量、幂等键与并发策略。
 - [ ] 在 `Sign` 聚合实现 8 态合法流转与三类终态保护，非法流转抛领域异常。
 - [ ] 编写无物理外键的 `claim_sign_db` 建表与变更脚本：唯一约束、逻辑关联索引。
