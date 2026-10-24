@@ -7,30 +7,20 @@
 
 平台不承担案件审核、理算与核赔，也不处理外部保司系统的内部业务。
 
-## 工程结构
+## 仓库内容
+
+本仓库只保存文档与架构基线；服务代码由功能 Spec 交付时重建，历史实现保留在 Git 记录中。
 
 ```text
 claim-platform/
-├── claim-platform-backend/       # 后端 Maven 聚合工程
-│   ├── claim-gateway/            # 租户接入边缘层：认证、验签、加解密、协议适配、路由、限流、Trace
-│   ├── claim-sign-service/       # 理赔签收限界上下文
-│   ├── claim-case-push-service/  # 案件推送限界上下文
-│   └── claim-common/             # 无领域规则的共享技术能力与稳定契约（不计入服务结构）
 ├── docs/
-│   ├── specs/                    # 项目基线与活动功能 Spec
+│   ├── specs/baseline.md         # 唯一的长期架构与公共约束来源
 │   └── engineering/              # 流程、Spec 与代码规范
 ├── AGENTS.md                     # Agent 开发入口与规则导航
 └── README.md                     # 本文件
 ```
 
-## 服务职责
-
-| 模块 | 职责 | 默认端口 |
-| --- | --- | --- |
-| `claim-gateway` | 报文协议、认证、验签、加解密、限流、路由、Trace | 8080 |
-| `claim-sign-service` | 签收提交与查询、材料处理、承保查询、审核同步、问题件、撤销 | 8081 |
-| `claim-case-push-service` | 推送任务、推送记录、回执、推送策略 | 8082 |
-| `claim-common` | 响应信封 `ApiResult<T>` 等稳定技术契约 | — |
+目标工程结构、服务职责与数据表归属见 [docs/specs/baseline.md](docs/specs/baseline.md) §4、§5，本文件不重复。四个后端模块及其默认端口速览：`claim-gateway`（8080）、`claim-sign-service`（8081）、`claim-case-push-service`（8082）、共享技术模块 `claim-common`。
 
 ## 技术基线
 
@@ -50,10 +40,6 @@ claim-platform/
 
 本 README 只提供项目导航，不作为需求或架构规则依据。
 
-## 构建与验证
+## 验证
 
-```bash
-mvn verify
-```
-
-后端改动必须通过 `mvn verify`；前端改动（`claim-platform-frontend/` 建立后）必须通过 `npm run typecheck` 与 `npm run build`。门禁细则见 [docs/engineering/workflow.md](docs/engineering/workflow.md) 第 6 节。
+后端改动通过 `mvn verify`，前端改动（`claim-platform-frontend/` 建立后）通过 `npm run typecheck` 与 `npm run build`；门禁细则见 [docs/engineering/workflow.md](docs/engineering/workflow.md) 第 6 节。仓库不含代码时这两条不适用。
