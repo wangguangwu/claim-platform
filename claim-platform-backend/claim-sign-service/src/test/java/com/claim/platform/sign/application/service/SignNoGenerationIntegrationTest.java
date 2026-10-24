@@ -16,7 +16,6 @@ import com.claim.platform.sign.application.result.SignResult;
 import com.claim.platform.sign.domain.model.SignNo;
 import com.claim.platform.sign.infrastructure.config.SignNoProperties;
 import com.claim.platform.sign.infrastructure.scheduling.SignNoReconciliationScheduler;
-import com.claim.platform.sign.interfaces.tenant.support.SupportTenantTestData;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.Gauge;
@@ -375,7 +374,7 @@ class SignNoGenerationIntegrationTest {
     }
 
     @Test
-    void shouldServeNewFormatFromBothHttpEntryPoints() throws Exception {
+    void shouldServeNewFormatThroughHttpEntryPoint() throws Exception {
         String standardTenant = newTenant();
         String standardExternalApplyNo = "IT-SNG-STD-" + UUID.randomUUID();
         MvcResult standard = mockMvc.perform(gateway(post("/api/v1/claim-intakes"), standardTenant)
@@ -387,22 +386,8 @@ class SignNoGenerationIntegrationTest {
                 .andExpect(jsonPath("$.data.signNo", matchesPattern("^S\\d{16}$")))
                 .andReturn();
         String standardSignNo = responseData(standard, "signNo");
+
         assertThat(standardSignNo).startsWith(datePrefix(today()));
-
-        String referenceExternalApplyNo = "IT-SNG-REF-" + UUID.randomUUID();
-        String payload = SupportTenantTestData.VALID_PAYLOAD.replace("EXT-001", referenceExternalApplyNo);
-        MvcResult reference = mockMvc.perform(gateway(post("/api/v1/tenant-intakes"), "reference")
-                        .header("X-Claim-Protocol-Version", "v1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(payload))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.signNo", matchesPattern("^S\\d{16}$")))
-                .andReturn();
-        String referenceSignNo = responseData(reference, "signNo");
-
-        assertThat(referenceSignNo).startsWith(datePrefix(today()));
-        assertThat(referenceSignNo).isNotEqualTo(standardSignNo);
     }
 
     @Test
@@ -470,8 +455,7 @@ class SignNoGenerationIntegrationTest {
     }
 
     private SignCommand command(String tenantCode, String externalApplyNo) {
-        return new SignCommand(tenantCode, TRACE_ID, externalApplyNo, "集成测试", null, null, null,
-                null, List.of(), "{}");
+        return new SignCommand(tenantCode, TRACE_ID, externalApplyNo, "集成测试", List.of(), "{}");
     }
 
     private LocalDate today() {

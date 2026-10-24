@@ -7,15 +7,13 @@ import com.claim.platform.sign.domain.model.Material;
 import com.claim.platform.sign.domain.model.SignStatus;
 import com.claim.platform.sign.infrastructure.persistence.dataobject.SignDO;
 import com.claim.platform.sign.infrastructure.persistence.dataobject.MaterialDO;
-import com.claim.platform.sign.infrastructure.persistence.converter.PersonConverterImpl;
-import com.claim.platform.sign.infrastructure.persistence.dataobject.person.ApplicantInfoDO;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
 @SpringJUnitConfig
-@ContextConfiguration(classes = {SignPersistenceConverterImpl.class, PersonConverterImpl.class})
+@ContextConfiguration(classes = SignPersistenceConverterImpl.class)
 class SignPersistenceConverterTest {
 
     @Autowired
@@ -28,10 +26,7 @@ class SignPersistenceConverterTest {
         dataObject.setSignNo("SIGN001");
         dataObject.setExternalApplyNo("EXT001");
         dataObject.setApplicantName("张三");
-        ApplicantInfoDO applicant = new ApplicantInfoDO();
-        applicant.setName("张三");
-        applicant.setMobile("masked");
-        dataObject.setApplicantInfo(applicant);
+        dataObject.setExtJson("{\"channel\":\"APP\"}");
         dataObject.setStatus(SignStatus.IMAGE_UPLOADED);
 
         Sign sign = mapper.toDomain(dataObject);
@@ -39,19 +34,19 @@ class SignPersistenceConverterTest {
         assertThat(sign.tenantCode()).isEqualTo("tenant-a");
         assertThat(sign.signNo()).isEqualTo("SIGN001");
         assertThat(sign.status()).isEqualTo(SignStatus.IMAGE_UPLOADED);
-        assertThat(sign.applicant()).isNotNull();
-        assertThat(sign.applicant().name()).isEqualTo("张三");
+        assertThat(sign.applicantName()).isEqualTo("张三");
+        assertThat(sign.extJson()).isEqualTo("{\"channel\":\"APP\"}");
     }
 
     @Test
     void shouldMapDomainSnapshotToNewDataObjectWithoutIdAndVersion() {
-        Sign sign = Sign.create("tenant-a", "SIGN001", "EXT001", "张三", null,
-                null, null, null, null);
+        Sign sign = Sign.create("tenant-a", "SIGN001", "EXT001", "张三", "{\"channel\":\"APP\"}");
 
         SignDO dataObject = mapper.toDO(sign);
 
         assertThat(dataObject.getTenantCode()).isEqualTo("tenant-a");
         assertThat(dataObject.getSignNo()).isEqualTo("SIGN001");
+        assertThat(dataObject.getExtJson()).isEqualTo("{\"channel\":\"APP\"}");
         assertThat(dataObject.getStatus()).isEqualTo(SignStatus.IMAGE_NOT_UPLOAD);
         assertThat(dataObject.getId()).isNull();
         assertThat(dataObject.getVersion()).isNull();

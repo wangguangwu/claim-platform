@@ -7,11 +7,6 @@ import com.claim.platform.sign.domain.exception.InvalidSignStatusException;
 import com.claim.platform.sign.domain.exception.ConcurrentSignModificationException;
 import com.claim.platform.sign.domain.exception.SignNotFoundException;
 import com.claim.platform.common.web.ApiResult;
-import com.claim.platform.sign.interfaces.tenant.core.exception.SignCodeMappingException;
-import com.claim.platform.sign.interfaces.tenant.core.exception.SignConversionException;
-import com.claim.platform.sign.interfaces.tenant.core.exception.SignPayloadParseException;
-import com.claim.platform.sign.interfaces.tenant.core.exception.SignRequestValidationException;
-import com.claim.platform.sign.interfaces.tenant.core.exception.TenantProtocolNotSupportedException;
 import com.claim.platform.sign.interfaces.web.SignWebContract;
 import com.claim.platform.sign.interfaces.web.context.GatewayRequestContextResolver;
 import com.claim.platform.sign.interfaces.web.exception.TenantContextMissingException;
@@ -67,41 +62,6 @@ public class SignExceptionHandler {
     @ExceptionHandler(TenantContextMissingException.class)
     public ResponseEntity<ApiResult<Void>> missingTenant(TenantContextMissingException exception, HttpServletRequest request) {
         return failure(SignErrorCode.TENANT_CONTEXT_MISSING, traceId(request));
-    }
-
-    /**
-     * 返回租户报文结构非法，只记录字段路径和 traceId，不记录原始报文。
-     */
-    @ExceptionHandler(SignPayloadParseException.class)
-    public ResponseEntity<ApiResult<Void>> malformedPayload(SignPayloadParseException exception,
-                                                            HttpServletRequest request) {
-        String traceId = traceId(request);
-        LOGGER.warn("tenant sign parse failed fieldPath={} traceId={}", exception.fieldPath(), traceId);
-        return failure(SignErrorCode.MALFORMED_REQUEST, traceId);
-    }
-
-    /**
-     * 返回公共/租户校验或编码映射失败，响应只包含固定文案。
-     */
-    @ExceptionHandler({SignRequestValidationException.class, SignCodeMappingException.class})
-    public ResponseEntity<ApiResult<Void>> tenantRequestValidation(SignConversionException exception,
-                                                                   HttpServletRequest request) {
-        String traceId = traceId(request);
-        LOGGER.warn("tenant sign {} failed fieldPath={} traceId={}",
-                exception.getClass().getSimpleName(), exception.fieldPath(), traceId);
-        return failure(SignErrorCode.REQUEST_VALIDATION_FAILED, traceId);
-    }
-
-    /**
-     * 返回当前租户与协议版本没有完整注册组件的失败，不做跨租户或跨版本回退。
-     */
-    @ExceptionHandler(TenantProtocolNotSupportedException.class)
-    public ResponseEntity<ApiResult<Void>> tenantProtocolNotSupported(TenantProtocolNotSupportedException exception,
-                                                                      HttpServletRequest request) {
-        String traceId = traceId(request);
-        LOGGER.warn("tenant protocol not supported tenantCode={} protocolVersion={} traceId={}",
-                exception.tenantCode(), exception.protocolVersion(), traceId);
-        return failure(SignErrorCode.TENANT_PROTOCOL_NOT_SUPPORTED, traceId);
     }
 
     /**

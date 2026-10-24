@@ -10,16 +10,14 @@ class SignTest {
 
     @Test
     void shouldCreateSignInImageNotUploadStatus() {
-        Sign sign = Sign.create("tenant-a", "SIGN001", "EXT001", "张三", null,
-                null, null, null, null);
+        Sign sign = Sign.create("tenant-a", "SIGN001", "EXT001", "张三", null);
 
         assertThat(sign.status()).isEqualTo(SignStatus.IMAGE_NOT_UPLOAD);
     }
 
     @Test
     void shouldRegisterMaterialsFromImageNotUploadStatus() {
-        Sign sign = Sign.create("tenant-a", "SIGN001", "EXT001", "张三", null,
-                null, null, null, null);
+        Sign sign = Sign.create("tenant-a", "SIGN001", "EXT001", "张三", null);
 
         sign.registerMaterials();
 
@@ -28,8 +26,7 @@ class SignTest {
 
     @Test
     void shouldRegisterMaterialsFromIssueCaseStatusForSupplement() {
-        Sign sign = Sign.restore("tenant-a", "SIGN001", "EXT001", "张三", null,
-                null, null, null, null, SignStatus.ISSUE_CASE);
+        Sign sign = Sign.restore("tenant-a", "SIGN001", "EXT001", "张三", null, SignStatus.ISSUE_CASE);
 
         sign.registerMaterials();
 
@@ -38,8 +35,7 @@ class SignTest {
 
     @Test
     void shouldRejectMaterialRegistrationAfterAuditSyncSuccess() {
-        Sign sign = Sign.restore("tenant-a", "SIGN001", "EXT001", "张三", null,
-                null, null, null, null, SignStatus.SYNC_AUDIT_SUCCESS);
+        Sign sign = Sign.restore("tenant-a", "SIGN001", "EXT001", "张三", null, SignStatus.SYNC_AUDIT_SUCCESS);
 
         assertThatThrownBy(sign::registerMaterials).isInstanceOf(InvalidSignStatusException.class);
     }

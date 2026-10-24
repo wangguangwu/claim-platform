@@ -2,18 +2,14 @@ package com.claim.platform.sign.domain.model;
 
 import com.claim.platform.sign.domain.exception.ConcurrentSignModificationException;
 import com.claim.platform.sign.domain.exception.InvalidSignStatusException;
-import com.claim.platform.sign.domain.model.person.AccidentPerson;
-import com.claim.platform.sign.domain.model.person.Applicant;
-import com.claim.platform.sign.domain.model.person.MainInsured;
-import com.claim.platform.sign.domain.model.person.Payee;
 
 /**
- * 理赔受理聚合根，维护签收编号、外部申请编号及材料登记引起的状态转换。
- * 四类人员以强类型 {@code Person} 子类型承载，状态恢复与快照导出均保持类型安全。
+ * 理赔签收聚合根，维护签收编号、外部申请编号及材料登记引起的状态转换。
+ * 人员明细不属于聚合状态，只以 {@code applicantName} 提供检索、以 {@code extJson} 原样透传。
  * <p>聚合不变量：
  * <ul>
  *   <li>标识：{@code tenantCode + signNo}；</li>
- *   <li>幂等键：{@code tenantCode + externalApplyNo}，重复提交回放既有受理事实，不得新建；</li>
+ *   <li>幂等键：{@code tenantCode + externalApplyNo}，重复提交回放既有签收事实，不得新建；</li>
  *   <li>并发策略：{@code version} 乐观锁，冲突时抛出 {@link ConcurrentSignModificationException}；</li>
  *   <li>合法状态转换：仅 {@link #registerMaterials()} 允许材料上传触发迁移。</li>
  * </ul>
@@ -26,24 +22,15 @@ public final class Sign {
     private final String signNo;
     private final String externalApplyNo;
     private final String applicantName;
-    private final Applicant applicant;
-    private final AccidentPerson accidentPerson;
-    private final MainInsured mainInsured;
-    private final Payee payee;
     private final String extJson;
     private SignStatus status;
 
     private Sign(String tenantCode, String signNo, String externalApplyNo, String applicantName,
-                        Applicant applicant, AccidentPerson accidentPerson, MainInsured mainInsured, Payee payee,
                         String extJson, SignStatus status) {
         this.tenantCode = tenantCode;
         this.signNo = signNo;
         this.externalApplyNo = externalApplyNo;
         this.applicantName = applicantName;
-        this.applicant = applicant;
-        this.accidentPerson = accidentPerson;
-        this.mainInsured = mainInsured;
-        this.payee = payee;
         this.extJson = extJson;
         this.status = status;
     }
@@ -55,18 +42,13 @@ public final class Sign {
      * @param signNo          平台签收编号
      * @param externalApplyNo 外部申请编号
      * @param applicantName   申请人姓名（冗余存储用于检索）
-     * @param applicant       申请人领域对象，可为 null
-     * @param accidentPerson  出险人领域对象，可为 null
-     * @param mainInsured     主被保险人领域对象，可为 null
-     * @param payee           领款人领域对象，可为 null
      * @param extJson         扩展信息 JSON 字符串
      * @return 新申请聚合
      */
     public static Sign create(String tenantCode, String signNo, String externalApplyNo, String applicantName,
-                                     Applicant applicant, AccidentPerson accidentPerson, MainInsured mainInsured,
-                                     Payee payee, String extJson) {
-        return new Sign(tenantCode, signNo, externalApplyNo, applicantName, applicant, accidentPerson,
-                mainInsured, payee, extJson, SignStatus.IMAGE_NOT_UPLOAD);
+                                     String extJson) {
+        return new Sign(tenantCode, signNo, externalApplyNo, applicantName, extJson,
+                SignStatus.IMAGE_NOT_UPLOAD);
     }
 
     /**
@@ -75,10 +57,8 @@ public final class Sign {
      * @return 已恢复的聚合
      */
     public static Sign restore(String tenantCode, String signNo, String externalApplyNo, String applicantName,
-                                      Applicant applicant, AccidentPerson accidentPerson, MainInsured mainInsured,
-                                      Payee payee, String extJson, SignStatus status) {
-        return new Sign(tenantCode, signNo, externalApplyNo, applicantName, applicant, accidentPerson,
-                mainInsured, payee, extJson, status);
+                                      String extJson, SignStatus status) {
+        return new Sign(tenantCode, signNo, externalApplyNo, applicantName, extJson, status);
     }
 
     /**
@@ -89,8 +69,7 @@ public final class Sign {
      */
     public static Sign restore(SignState state) {
         return restore(state.tenantCode(), state.signNo(), state.externalApplyNo(), state.applicantName(),
-                state.applicant(), state.accidentPerson(), state.mainInsured(), state.payee(), state.extJson(),
-                state.status());
+                state.extJson(), state.status());
     }
 
     /**
@@ -121,22 +100,6 @@ public final class Sign {
         return applicantName;
     }
 
-    public Applicant applicant() {
-        return applicant;
-    }
-
-    public AccidentPerson accidentPerson() {
-        return accidentPerson;
-    }
-
-    public MainInsured mainInsured() {
-        return mainInsured;
-    }
-
-    public Payee payee() {
-        return payee;
-    }
-
     public String extJson() {
         return extJson;
     }
@@ -151,7 +114,6 @@ public final class Sign {
      * @return 当前聚合的持久化领域状态
      */
     public SignState snapshot() {
-        return new SignState(tenantCode, signNo, externalApplyNo, applicantName, applicant,
-                accidentPerson, mainInsured, payee, extJson, status);
+        return new SignState(tenantCode, signNo, externalApplyNo, applicantName, extJson, status);
     }
 }

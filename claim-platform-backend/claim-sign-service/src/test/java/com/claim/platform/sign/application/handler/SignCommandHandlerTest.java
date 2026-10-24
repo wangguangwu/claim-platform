@@ -23,7 +23,6 @@ import com.claim.platform.sign.domain.model.Material;
 import com.claim.platform.sign.domain.model.Sign;
 import com.claim.platform.sign.domain.model.SignNo;
 import com.claim.platform.sign.domain.model.SignStatus;
-import com.claim.platform.sign.domain.model.person.Applicant;
 import com.claim.platform.sign.domain.repository.InteractionLogRepository;
 import com.claim.platform.sign.domain.repository.MaterialRepository;
 import com.claim.platform.sign.domain.repository.SignRepository;
@@ -410,15 +409,12 @@ class SignCommandHandlerTest {
     }
 
     private Sign existingSign() {
-        return Sign.create(TENANT_CODE, SIGN_NO, EXTERNAL_APPLY_NO, "张三", null, null, null, null, null);
+        return Sign.create(TENANT_CODE, SIGN_NO, EXTERNAL_APPLY_NO, "张三", null);
     }
 
     private SignCommand command() {
-        Applicant applicant = new Applicant("张三", "ID_CARD", "110101199001011234", "13800138000", "M",
-                "1990-01-01", "SELF");
         Material material = new Material("BATCH-1", 1, "ID_CARD", "身份证.jpg", "/tmp/a", "/tmp/b");
-        return new SignCommand(TENANT_CODE, TRACE_ID, EXTERNAL_APPLY_NO, "张三", applicant, null, null,
-                null, List.of(material), "{}");
+        return new SignCommand(TENANT_CODE, TRACE_ID, EXTERNAL_APPLY_NO, "张三", List.of(material), "{}");
     }
 
     private SignSubmissionLockHandle handle(LockAcquireStatus status) {

@@ -40,7 +40,6 @@ class SignCommandTest {
     }
 
     private SignCommand command(List<Material> materials) {
-        return new SignCommand("tenant-a", "trace-001", "EXT001", "张三", null, null, null, null,
-                materials, "{}");
+        return new SignCommand("tenant-a", "trace-001", "EXT001", "张三", materials, "{}");
     }
 }

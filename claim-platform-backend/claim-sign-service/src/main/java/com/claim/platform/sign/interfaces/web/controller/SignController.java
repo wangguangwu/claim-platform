@@ -9,7 +9,6 @@ import com.claim.platform.sign.application.result.SignDetailResult;
 import com.claim.platform.sign.application.result.SignResult;
 import com.claim.platform.sign.domain.model.Material;
 import com.claim.platform.sign.interfaces.web.SignWebContract;
-import com.claim.platform.sign.interfaces.web.converter.PersonRequestConverter;
 import com.claim.platform.sign.interfaces.web.context.GatewayRequestContext;
 import com.claim.platform.sign.interfaces.web.context.GatewayRequestContextResolver;
 import com.claim.platform.sign.interfaces.web.request.SignRequest;
@@ -34,8 +33,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 理赔签收的 HTTP 协议适配器，只负责输入校验、可信上下文提取、人员 JSON 到领域模型的边界转换与响应封装。
- * 领域层不直接解析人员 JSON，转换责任落在接口层的 {@link PersonRequestConverter}。
+ * 理赔签收的 HTTP 协议适配器，只负责输入校验、可信上下文提取与响应封装。
+ * 人员明细不在边界内建模，随 {@code extJson} 原样传入应用层。
  *
  * @author wangguangwu
  */
@@ -48,22 +47,18 @@ public class SignController {
     private final SignCommandHandler commandService;
     private final SignQueryService queryService;
     private final ObjectMapper objectMapper;
-    private final PersonRequestConverter personRequestConverter;
 
     public SignController(GatewayRequestContextResolver contextResolver,
                                  SignCommandHandler commandService,
-                                 SignQueryService queryService, ObjectMapper objectMapper,
-                                 PersonRequestConverter personRequestConverter) {
+                                 SignQueryService queryService, ObjectMapper objectMapper) {
         this.contextResolver = contextResolver;
         this.commandService = commandService;
         this.queryService = queryService;
         this.objectMapper = objectMapper;
-        this.personRequestConverter = personRequestConverter;
     }
 
     /**
      * 接收签收申请；同一外部申请编号回放既有签收事实。
-     * 人员信息在边界内由 JSON 经 {@link PersonRequestConverter} 转为领域 Person 子类型。
      *
      * @return 创建或回放后的申请结果
      */
@@ -72,11 +67,7 @@ public class SignController {
             @Valid @RequestBody SignRequest request, HttpServletRequest servletRequest) {
         GatewayRequestContext context = resolveContext(servletRequest);
         SignResult result = commandService.submit(new SignCommand(context.tenantCode(),
-                context.traceId(), request.externalApplyNo(), request.applicantName(),
-                personRequestConverter.toApplicant(request.applicantInfo()),
-                personRequestConverter.toAccidentPerson(request.accidentPersonInfo()),
-                personRequestConverter.toMainInsured(request.mainInsuredInfo()),
-                personRequestConverter.toPayee(request.payeeInfo()), List.of(),
+                context.traceId(), request.externalApplyNo(), request.applicantName(), List.of(),
                 toJson(request.extJson())));
         return ResponseEntity.ok(ApiResult.success(result, context.traceId()));
     }

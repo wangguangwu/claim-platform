@@ -3,7 +3,6 @@ package com.claim.platform.sign.infrastructure.persistence.converter;
 import com.claim.platform.sign.domain.model.Sign;
 import com.claim.platform.sign.domain.model.SignState;
 import com.claim.platform.sign.domain.model.Material;
-import com.claim.platform.sign.infrastructure.persistence.converter.PersonConverter;
 import com.claim.platform.sign.infrastructure.persistence.dataobject.SignDO;
 import com.claim.platform.sign.infrastructure.persistence.dataobject.MaterialDO;
 import org.mapstruct.Mapper;
@@ -11,25 +10,17 @@ import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
 
 /**
- * 在基础设施层转换 MyBatis-Plus 数据对象与领域状态；
- * 通过 {@code uses = PersonConverter.class} 在嵌套字段上完成四类人员 JSON 对象与领域 Person 子类型的双向转换。
+ * 在基础设施层转换 MyBatis-Plus 数据对象与领域状态。
  * Domain 不依赖 MapStruct、MyBatis-Plus 或数据库字段。
  *
  * @author wangguangwu
  */
-@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.ERROR,
-        uses = PersonConverter.class)
+@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.ERROR)
 public interface SignPersistenceConverter {
 
     /**
-     * 将申请 DO 转为不含数据库技术字段的领域状态（含强类型 Person 子类型）。
-     * 四个人员字段在 DO 侧为 InfoDO、状态侧为 Person 子类型，名称不同需显式映射，
-     * 实际转换由 {@code uses = PersonConverter} 提供的双向方法完成。
+     * 将申请 DO 转为不含数据库技术字段的领域状态。
      */
-    @Mapping(source = "applicantInfo", target = "applicant")
-    @Mapping(source = "accidentPersonInfo", target = "accidentPerson")
-    @Mapping(source = "mainInsuredInfo", target = "mainInsured")
-    @Mapping(source = "payeeInfo", target = "payee")
     SignState toState(SignDO source);
 
     /**
@@ -38,10 +29,6 @@ public interface SignPersistenceConverter {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "version", ignore = true)
     @Mapping(target = "deleted", ignore = true)
-    @Mapping(source = "applicant", target = "applicantInfo")
-    @Mapping(source = "accidentPerson", target = "accidentPersonInfo")
-    @Mapping(source = "mainInsured", target = "mainInsuredInfo")
-    @Mapping(source = "payee", target = "payeeInfo")
     SignDO toDO(SignState source);
 
     /**

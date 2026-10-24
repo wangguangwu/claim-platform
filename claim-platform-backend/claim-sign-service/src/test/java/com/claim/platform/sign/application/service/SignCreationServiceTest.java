@@ -76,7 +76,6 @@ class SignCreationServiceTest {
     }
 
     private SignCommand command(List<Material> materials) {
-        return new SignCommand(TENANT_CODE, TRACE_ID, EXTERNAL_APPLY_NO, "张三", null, null, null,
-                null, materials, "{}");
+        return new SignCommand(TENANT_CODE, TRACE_ID, EXTERNAL_APPLY_NO, "张三", materials, "{}");
     }
 }

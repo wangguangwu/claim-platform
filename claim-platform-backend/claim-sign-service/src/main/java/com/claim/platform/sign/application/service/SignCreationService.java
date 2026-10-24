@@ -37,8 +37,7 @@ public class SignCreationService {
     public SignResult create(SignCommand command, String signNo) {
         boolean hasMaterials = !command.materials().isEmpty();
         Sign sign = Sign.create(command.tenantCode(), signNo, command.externalApplyNo(),
-                command.applicantName(), command.applicant(), command.accidentPerson(),
-                command.mainInsured(), command.payee(), command.extJson());
+                command.applicantName(), command.extJson());
         if (hasMaterials) {
             sign.registerMaterials();
         }

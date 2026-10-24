@@ -18,7 +18,6 @@ import com.claim.platform.sign.domain.exception.SignNotFoundException;
 import com.claim.platform.sign.domain.model.SignStatus;
 import com.claim.platform.sign.interfaces.web.context.GatewayRequestContext;
 import com.claim.platform.sign.interfaces.web.context.GatewayRequestContextResolver;
-import com.claim.platform.sign.interfaces.web.converter.PersonRequestConverter;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,8 +37,6 @@ class SignControllerTest {
     private SignCommandHandler commandService;
     @MockBean
     private SignQueryService queryService;
-    @MockBean
-    private PersonRequestConverter personRequestConverter;
 
     @Test
     void shouldReturnStableEnvelopeWhenCreatingSign() throws Exception {

@@ -92,8 +92,7 @@ class SignSubmissionIntegrationTest {
 
     private SignCommand command(String tenantCode, String externalApplyNo) {
         Material material = new Material("BATCH-1", 1, "ID_CARD", "身份证.jpg", "/tmp/a", "/tmp/b");
-        return new SignCommand(tenantCode, "trace-it", externalApplyNo, "集成测试", null, null, null,
-                null, List.of(material), "{}");
+        return new SignCommand(tenantCode, "trace-it", externalApplyNo, "集成测试", List.of(material), "{}");
     }
 
     private int countRows(String table, String tenantCode) {
