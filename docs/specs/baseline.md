@@ -116,7 +116,6 @@ flowchart LR
 | `t_claim_sign` | 签收主数据与业务状态 |
 | `t_claim_sign_material` | 材料信息、来源、OSS 引用与单材料处理状态 |
 | `t_claim_sign_task` | 异步任务：执行、幂等、重试、超时恢复 |
-| `t_claim_sign_task_log` | 签收子流程任务的追加式执行日志：开始、结束、耗时、重试与结果摘要 |
 | `t_claim_sign_issue` | 问题件：原因、状态、回复、补充材料、恢复阶段 |
 | `t_claim_sign_case_rel` | `Sign → ClaimCase` 关系 |
 | `t_claim_sign_interaction_log` | 跨系统交互日志 |
@@ -180,7 +179,7 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 
 聚合与领域行为：
 
-- 签收域的模型固定为六个：`Sign`（业务标识 `tenantCode + externalApplyNo`，平台标识 `signNo`）、`SignTask`、`Material`、`ClaimIssue`、`CaseRelation`、`InteractionLog`；不在签收域新增其他聚合，新增必须先修订本文件。`t_claim_sign_task_log` 是 `SignTask` 的追加式执行历史，不单独构成聚合。
+- 签收域的模型固定为六个：`Sign`（业务标识 `tenantCode + externalApplyNo`，平台标识 `signNo`）、`SignTask`、`Material`、`ClaimIssue`、`CaseRelation`、`InteractionLog`；不在签收域新增其他聚合，新增必须先修订本文件。
 - `SignTask` 的任务类型固定为 `MATERIAL_PROCESS`、`INSURED_QUERY`、`AUDIT_SYNC`、`ISSUE_NOTIFY`、`ISSUE_REPLY_SYNC`。
 - 聚合必须显式定义标识、一致性边界、不变量、合法状态转换、并发策略与幂等键；这些规则不分散到 Controller、Repository 或定时任务中。聚合之间通过领域事件最终一致协作。
 - 撤销是 `Sign` 聚合的领域行为（`sign.revoke(...)`），不单独建立 Withdrawal 聚合；问题件建模为独立 `ClaimIssue`，MVP 不单独建立 `IssueReply`，回复内容、补充材料与流程恢复阶段都记在 `ClaimIssue` 内。
@@ -207,7 +206,7 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 异步任务与缓存边界：
 
 - 异步链路固定为 `SignTask → RocketMQ → Consumer`；执行、幂等、重试、并发控制与超时恢复由任务承担，`Sign` 主模型不直接执行异步逻辑。
-- 每个签收子流程任务必须记录创建、开始、结束、重试或终止等执行历史，以及本次尝试的耗时与结果摘要；跨系统调用另按 §10 记录 `InteractionLog`。任务执行历史与交互审计都不得记录材料原文和个人信息。
+- 每个签收子流程任务必须保存当前执行状态、重试信息、最近一次开始/结束时间、耗时与结果摘要；跨系统调用另按 §10 记录 `InteractionLog`。任务事实与交互审计都不得记录材料原文和个人信息。
 - Consumer 必须支持重复消费，按 `taskNo` 或业务幂等键去重并记录重复处理结果。
 - 查询采用 Cache-Aside，MySQL 是业务状态的事实来源；缓存不得参与状态推进、Task 执行、并发判断与撤销判断。
 - 承保查询、审核同步、问题件通知等外部调用必须携带业务幂等键（`signNo` 或 `taskNo`），重复调用不得产生重复业务副作用。
