@@ -5,7 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 /**
  * 启动案件推送限界上下文。
- * 该上下文独立拥有案件、推送任务、回执和死信等领域事实。
+ * 该上下文独立拥有推送任务、记录、回执和策略等领域事实；案件业务事实由内部案件系统拥有。
  *
  * @author wangguangwu
  */

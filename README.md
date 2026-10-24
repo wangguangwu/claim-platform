@@ -34,7 +34,7 @@ claim-platform/
 | `claim-case-push-service` | 推送任务、推送记录、回执、推送策略 | 8082 | 仅启动类 |
 | `claim-common` | 响应信封 `ApiResult<T>` 等稳定技术契约 | — | 仅 `ApiResult` 与其单元测试，无领域规则 |
 
-三个服务都只有启动类，可编译、可打包；`/actuator/health` 是唯一的运行时端点。可启动不代表业务能力存在。前端与本地 MySQL/Redis、RocketMQ、OSS 环境均不在仓库内，需要各自的 Spec 交付。
+三个服务都只有启动类，可编译、可打包；当前仅暴露 Actuator 的 `/actuator/health` 与 `/actuator/info`。可启动不代表业务能力存在。前端与本地 MySQL/Redis、RocketMQ、OSS 环境均不在仓库内，需要各自的 Spec 交付。
 
 ## 技术基线
 
@@ -47,7 +47,7 @@ claim-platform/
 
 ## 文档入口
 
-- [AGENTS.md](AGENTS.md)：任务入口与规则导航。
+- [AGENTS.md](AGENTS.md)：所有协作 Agent 的强制任务入口与规则导航。
 - [项目基线](docs/specs/baseline.md)：唯一的长期架构与公共约束来源。
 - `docs/specs/<feature-name>/`：活动功能的需求、设计与任务。
 - `docs/engineering/`：开发流程、Spec 规范与代码规范。
