@@ -1,204 +1,48 @@
 # 签收流程设计
 
-## 架构与边界
+分层、状态机、数据模型、核心时序、三层幂等与状态补偿均已由 [签收服务架构基准](../../architecture/claim-sign-service.md) 固定，本文件不复述，只写把它落到代码时的包位置、实现决策、契约缺口与测试口径。需求口径见 [requirements.md](requirements.md)，任务拆分见 [tasks.md](tasks.md)。
 
-平台级服务边界和分层方向遵循 [项目基线](../baseline.md)。本 Feature 在既定 Sign 上下文内编排业务流程，不新增微服务、独立查询服务或通用工作流引擎。
+## 落地映射
 
-```mermaid
-flowchart LR
-    Caller[租户调用方] --> Gateway[claim-gateway\n协议、安全、限流、TenantContext]
-    Gateway --> Interfaces[claim-sign-service interfaces\nsign / material / issue / internal]
-    Interfaces --> App[application\n命令、查询、任务编排]
-    App --> Domain[domain\nSign / Material / SignTask / ClaimIssue / CaseRelation / InteractionLog]
-    App --> DB[(claim_sign_db)]
-    Dispatcher[Dispatcher / JobHandler] --> DB
-    Dispatcher --> MQ[RocketMQ]
-    MQ --> Consumer[Consumer]
-    Consumer --> App
-    App --> Adapter[Adapter 防腐层]
-    Adapter --> OSS[OSS]
-    Adapter --> Insured[承保系统]
-    Adapter --> Audit[审核系统]
-    Adapter --> InternalCase[内部案件系统]
-```
+| 架构基准中的角色 | 落点 |
+| --- | --- |
+| Tenant Adapter + Pipeline（验签/加解密/Parser/Validator/Converter/响应加密） | `interfaces/acl`，`TenantAdapterRouter` 按 `tenantCode + protocolVersion` 选择 Pipeline |
+| 同步签收、撤销、问题件回复接收 | `application/command`：`SubmitSignCommand` → `SignCommandHandler`，`RevokeSignCommand` → `SignCommandHandler`，`SubmitIssueReplyCommand` → `ClaimIssueCommandHandler` |
+| 状态合法性、终态保护 | `domain/sign`，`Sign` 聚合方法，不在 Consumer 或 Repository 里判断流转 |
+| 事件消费与状态推进编排 | 消息入口在 `interfaces`，编排在 `application/task` |
+| 按状态补偿 | `application/task` 的恢复编排 + XXL-Job Handler，扫描落在 `infrastructure` |
+| 查询 | `application/query`：`SignQueryService`、`MaterialQueryService`、`ClaimIssueQueryService` |
+| 持久化 | `infrastructure/persistence`，五张表各一组 DataObject / Mapper / Converter / Repository |
+| 出站 | `infrastructure/insured`（有效保单查询、自动承保）、`infrastructure/audit`（审核任务、问题件回复、撤销通知）、`infrastructure/oss`（影像与补材下载） |
+| 业务锁、发号、回放缓存 | 端口在 `application/port`，实现在 `infrastructure/cache` |
 
-- Gateway 负责协议、安全、租户和流量；签收服务只处理平台标准报文，并再次校验调用方租户范围。
-- Controller、Consumer、JobHandler 都只是入口。事务编排与流程推进位于 `application`，状态合法性位于领域聚合。
-- `SignTask` 是“当前需要执行什么、执行是否成功、失败何时重试”的异步执行事实与可靠消息载体，不承担通用工作流、完整执行事件审计或 SLA 平台职责。
-- 外部系统调用仅经 Adapter，且不在数据库事务中执行。
+## 关键实现决策
 
-## 核心数据模型
+- **三层幂等落点**：第一层快查走 `SignRepository`；第二层用 Redisson 锁，键由 `tenantCode + externalApplyNo` 构成，锁不作为事实来源；第三层捕获唯一键冲突后回查并发赢家，回查不到按编号碰撞处理。
+- **锁与事务边界**：锁只覆盖"读状态 → 校验 → 写状态"的短事务，事务内外链式包含影像 IO、承保调用、审核投递与事件发布；`signNo` 锁与创建锁是两种粒度，不复用同一键。
+- **事件发布时机**：创建事务提交后发布，发布异常不回传给租户调用方，只记交互日志并交由补偿；禁止在事务内投递 MQ 或调用外部系统。
+- **交互日志独立事务**：`InteractionLog` 不与业务状态同事务提交，避免拉长事务；写失败只告警，不阻塞主流程。
+- **人员信息存储**：四个 JSON 列以字符串存取，MapStruct 只做序列化转换，不建领域对象；出参默认不携带这些列。
+- **状态推进入口收敛**：所有推进经 `Sign` 聚合的显式方法（受理成功/失败、发起自动承保、提交审核、签收完成、进入问题件、恢复等待、撤销），非法流转在聚合内抛出并由 `interfaces/advice` 映射为 `INVALID_SIGN_STATUS`。
+- **不重建任务模型**：补偿依赖状态与时间阈值扫描，不新增任务表、执行事件历史表或工作流引擎。
 
-```mermaid
-erDiagram
-    T_CLAIM_SIGN ||--o{ T_CLAIM_SIGN_MATERIAL : "logical sign_no"
-    T_CLAIM_SIGN ||--o{ T_CLAIM_SIGN_TASK : "logical sign_no"
-    T_CLAIM_SIGN ||--o{ T_CLAIM_SIGN_ISSUE : "logical sign_no"
-    T_CLAIM_SIGN ||--o{ T_CLAIM_SIGN_CASE_REL : "logical sign_no"
-    T_CLAIM_SIGN ||--o{ T_CLAIM_SIGN_INTERACTION_LOG : "logical sign_no"
-    T_CLAIM_SIGN_TASK ||--o{ T_CLAIM_SIGN_INTERACTION_LOG : "logical task_no"
+## 接口与契约缺口
 
-    T_CLAIM_SIGN {
-        bigint id PK
-        varchar tenant_code
-        varchar external_apply_no
-        varchar sign_no UK
-        varchar sign_status
-        varchar current_stage
-        varchar applicant_name
-        json ext_json
-    }
-    T_CLAIM_SIGN_MATERIAL {
-        bigint id PK
-        varchar tenant_code
-        varchar sign_no
-        varchar material_no UK
-        varchar material_status
-        varchar oss_url
-    }
-    T_CLAIM_SIGN_TASK {
-        bigint id PK
-        varchar tenant_code
-        varchar sign_no
-        varchar task_no UK
-        varchar task_type
-        varchar task_status
-        varchar biz_version
-        int retry_count
-        datetime next_retry_at
-        datetime started_at
-        datetime finished_at
-        bigint cost_ms
-        varchar error_code
-    }
-    T_CLAIM_SIGN_ISSUE {
-        bigint id PK
-        varchar tenant_code
-        varchar sign_no
-        varchar issue_no UK
-        varchar issue_status
-        varchar resume_stage
-    }
-    T_CLAIM_SIGN_CASE_REL {
-        bigint id PK
-        varchar tenant_code
-        varchar sign_no
-        varchar case_no
-    }
-    T_CLAIM_SIGN_INTERACTION_LOG {
-        bigint id PK
-        varchar tenant_code
-        varchar sign_no
-        varchar task_no
-        varchar interaction_type
-        varchar direction
-        varchar trace_id
-        bigint cost_ms
-        varchar result
-    }
-```
+以下项未确认，确认前不创建对应 Controller、DTO 与消息定义；确认后先回写基线 §8 与架构基准再编码：
 
-- 图中连线是业务逻辑关联，**不是物理外键**。写入前由应用层校验关联事实，逻辑关联列建立查询索引，删除或状态变更不依赖数据库级联。
-- `t_claim_sign` 的业务唯一键是 `(tenant_code, external_apply_no)`，`sign_no` 全局唯一；`id` 只作内部主键。
-- `t_claim_sign_task` 只保存当前/最近一次执行快照。创建幂等使用 `sign_no + task_type + biz_version` 业务键；`biz_version` 表示该阶段的第几次有效执行，用于区分问题件恢复后的新任务。
-- `t_claim_sign_interaction_log` 保留每次外部交互。一条 `SignTask` 可以对应多条交互日志，例如审核同步过程中的鉴权、附件传递和结果查询；它不记录材料原文或个人信息。
+- HTTP 子资源的路径与请求响应字段（材料、问题件、撤销），根路径固定 `/api/v1/signs`。
+- MQ Topic/Tag 与消费组命名，事件载荷字段按基线 §7 已固定。
+- 问题件缺业务定位标识：多次打回场景下租户回复与补材如何绑定到具体一条 `ClaimIssue` 尚未确定。
+- 审核系统与承保系统的接口报文细节与错误码到 `SignErrorCode` 的映射。
 
-## 状态与流程
+领域错误码沿用基线 §8 的六项，状态模型变更不改上报值。
 
-`signStatus` 只表示签收生命周期，`currentStage` 只表示当前处理位置；`SignTask.taskStatus` 表示子流程的执行状态，三者不混用。
+## 测试策略
 
-```mermaid
-stateDiagram-v2
-    [*] --> SIGNED: 落表成功 / MATERIAL
-    SIGNED --> PROCESSING: 材料任务开始 / MATERIAL
-    PROCESSING --> PROCESSING: 材料成功 / INSURED_QUERY
-    PROCESSING --> PROCESSING: 承保成功 / AUDIT_SYNC
-    PROCESSING --> PROCESSING: 审核同步成功 / WAIT_RESULT
-    PROCESSING --> ISSUE: 业务不满足\n记录 resumeStage
-    ISSUE --> PROCESSING: 回复成功并恢复对应阶段
-    PROCESSING --> COMPLETED: 收到 CASE_COMPLETE 结果事件
-    SIGNED --> REVOKED: 撤销
-    PROCESSING --> REVOKED: 撤销
-    ISSUE --> REVOKED: 撤销
-    COMPLETED --> [*]
-    REVOKED --> [*]
-```
-
-```mermaid
-flowchart TD
-    A[提交 Sign] --> B[同事务：Sign、初始材料元信息、MATERIAL_PROCESS 任务、SIGN_SUBMIT 交互日志]
-    B --> C[MATERIAL_PROCESS\n完整性检查、标准化、归档]
-    C -->|技术失败| CR[任务重试、死信或人工介入]
-    C -->|缺件/业务不满足| IM[创建 ClaimIssue\nresumeStage=MATERIAL]
-    C -->|成功| D[INSURED_QUERY]
-    D -->|技术失败| DR[任务重试、死信或人工介入]
-    D -->|承保不符| II[创建 ClaimIssue\nresumeStage=INSURED_QUERY]
-    D -->|成功| E[AUDIT_SYNC]
-    E -->|技术失败| ER[任务重试、死信或人工介入]
-    E -->|审核驳回| IA[创建 ClaimIssue\nresumeStage=AUDIT_SYNC]
-    E -->|同步成功| F[WAIT_RESULT]
-    F -->|CASE_BIND| G[维护 CaseRelation\n仍处于 WAIT_RESULT]
-    F -->|CASE_COMPLETE| H[COMPLETED]
-    IM --> R[补材/问题件回复]
-    II --> R
-    IA --> R
-    R --> S[ISSUE_REPLY_SYNC]
-    S --> T{resumeStage}
-    T -->|MATERIAL| C
-    T -->|INSURED_QUERY| D
-    T -->|AUDIT_SYNC| E
-```
-
-- 材料上传与材料处理不是同一概念：上传入口只接收并保存 OSS 引用和材料元信息；`MATERIAL_PROCESS` 异步执行材料完整性检查、标准化或归档等后续处理，不代替调用方上传原文。
-- `CaseRelation` 仅维护 `signNo ↔ caseNo`。收到 `CASE_BIND` 只建立或更新关系；只有明确的 `CASE_COMPLETE` 内部结果事件才将 `Sign` 推至 `COMPLETED`，因此可支持一个签收关联多个案件。
-- 业务不满足创建 `ClaimIssue` 并暂停流程；技术失败只改变任务状态并重试。问题件解决后依据 `resumeStage` 创建对应任务，不统一回到材料处理。
-
-## 异步任务与一致性
-
-任务状态保持最小集合：`PENDING → RUNNING → SUCCEEDED`；可重试技术失败走 `RUNNING → RETRY_WAIT → PENDING`，重试耗尽或人工介入走 `FAILED`，签收终态前未执行任务可置 `CANCELLED`。`startedAt`、`finishedAt`、`costMs` 仅保存最近一次执行摘要，不建立独立任务事件历史表。
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant App as Application
-    participant DB as claim_sign_db
-    participant D as Dispatcher / Recovery Job
-    participant MQ as RocketMQ
-    participant C as Consumer
-    participant X as 外部系统
-
-    App->>DB: 事务写入 SignTask(PENDING)
-    App->>DB: 提交事务
-    D->>DB: 扫描 PENDING 或到期 RETRY_WAIT 任务
-    D->>MQ: 投递 taskNo
-    MQ->>C: 正常或重复投递
-    C->>DB: CAS: PENDING -> RUNNING
-    alt 领取成功
-        C->>X: Adapter 调用，携带 taskNo / signNo
-        X-->>C: 结果或超时
-        C->>DB: 更新 Task 快照 + InteractionLog
-        alt 成功
-            C->>DB: 推进 Sign，创建下一阶段任务
-        else 技术失败
-            C->>DB: RETRY_WAIT 或 FAILED
-        else 业务不满足
-            C->>DB: 创建 ClaimIssue，Sign 置 ISSUE
-        end
-    else 已被其他消费者领取或完成
-        C-->>MQ: 安全结束，不调用外部系统
-    end
-```
-
-- Application 不直接发送 MQ。Dispatcher 扫描已提交的 `PENDING` 任务及到期 `RETRY_WAIT` 任务后投递；投递失败保留任务事实并由恢复 Job 再次扫描，实现可靠消息而不引入额外 Outbox 表。
-- 数据库唯一键负责“不要重复创建”：同一 `signNo + taskType + bizVersion` 只能创建一个有效任务。条件更新负责“不要重复执行”：`UPDATE ... SET task_status = 'RUNNING' WHERE task_no = ? AND task_status = 'PENDING'` 仅影响一行时才允许调用外部系统。
-- `SignTask` 记录一次业务动作的当前执行事实；`InteractionLog` 记录其执行过程中每一次跨系统交互，二者不重复承担任务事件历史。
-
-## 接口与测试
-
-计划暴露签收、材料、问题件与内部结果四类版本化入口，均以 `/api/v1/signs` 为根路径。具体 HTTP 字段、材料上传方式、内部结果事件版本和 MQ Topic/Tag 尚未确认；确认后须先回写基线再创建 Controller、DTO 和消息定义。
-
-- 聚合测试：生命周期/阶段推进、终态保护、问题件恢复阶段与撤销前置条件。
-- 任务测试：创建幂等、条件领取、重复消息、重试耗尽、到期恢复与最近执行摘要更新。
-- 集成测试：无外键 DDL、业务唯一键、租户过滤、逻辑关联校验与跨表事务回滚。
-- Adapter 与接口测试：材料、承保、审核的成功、业务拒绝、超时、重复调用及脱敏响应。
-- 验收测试：签收至 `WAIT_RESULT`、问题件按阶段恢复、多个 `CaseRelation` 与 `CASE_COMPLETE` 事件完成流程。
+- **聚合测试**：8 态合法与非法流转、三类终态保护、问题件进入与离开口径、撤销前置状态。
+- **幂等测试**：并发创建的三层路径、唯一键冲突回查回放、锁未获取时的可重试错误、跨租户相同 `externalApplyNo` 互不影响。
+- **消费测试**：重复事件按当前状态安全结束、影像失败置 `ACCEPT_FAILED`、自动承保以 `signNo` 幂等、审核任务提交后进入 `WAIT_AUDIT_ACCEPT`、已撤销申请不推进。
+- **补偿测试**：每个可推进状态命中对应恢复策略、`WAIT_AUDIT_ACCEPT` 超时只告警不重复提交、`CLAIM_REVOKED` 撤销通知补发。
+- **集成测试**：无物理外键的建表脚本、唯一约束与逻辑关联索引、租户过滤、应用层关联校验、创建事务回滚、交互日志独立事务。
+- **适配层测试**：多租户 Pipeline 的验签、解密、解析、校验、转换与响应加密；租户分支不得进入用例与领域模型。
+- **门禁**：后端改动执行 `mvn verify`。
