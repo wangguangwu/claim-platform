@@ -15,7 +15,7 @@
 
 | 文件 | 负责的问题 |
 | --- | --- |
-| `docs/specs/baseline.md` | 产品范围、核心业务规则、技术约束、架构与分层、全局需求、范围之外 |
+| `docs/specs/baseline.md` | 产品范围、核心业务规则、技术约束、架构与分层、全局需求、范围之外；已吸收签收域架构蓝本 |
 | `docs/engineering/workflow.md` | 开发生命周期与全部 Git 操作：工作区、分支、同步、提交、推送、审核、合并、验证门禁、任务结束条件 |
 | `docs/engineering/specification.md` | Spec 的建与不建、`requirements.md` / `design.md` / `tasks.md` 的职责边界与一致性规则、交付后清理 |
 | `docs/engineering/implementation.md` | 代码修改规范：先查后写、复用、新类职责与位置、范围纪律、测试、Java / 前端 / HTTP 契约细则 |
