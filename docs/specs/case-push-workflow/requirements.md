@@ -15,7 +15,7 @@
 ## 所属上下文与范围
 
 - 所属限界上下文：Push；实现模块为 `claim-case-push-service`，独立拥有推送任务、推送记录、推送回执与推送策略。
-- 本 Feature 依赖平台契约版本化完成案件生成事件及保司交互契约确认；编码前必须建立并经确认 `docs/architecture/claim-case-push-service.md` 作为推送域内长期架构基准。
+- 本 Feature 依赖案件生成事件及保司交互契约完成确认；编码前必须建立并经确认 `docs/architecture/claim-case-push-service.md` 作为推送域内长期架构基准。
 
 ## 验收标准
 

@@ -17,7 +17,7 @@
 - 不创建 `claim_sign_db` 与推送库的业务表、业务迁移脚本或领域 Repository；它们分别归属 `sign-workflow` 与后续案件推送 Feature。
 - 不定义签收 HTTP 字段、MQ Topic/Tag、消费者组、问题件定位标识，亦不实现租户报文验签、加解密或 Parser / Validator / Converter。
 - 不实现承保、审核、保司等外部业务系统调用，不将本地对象存储作为生产 OSS 选型。
-- 不建设完整 CI/CD、看板或生产告警规则。
+- 不建设看板或生产告警规则。
 
 ## 所属上下文与范围
 
