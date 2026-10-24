@@ -85,7 +85,7 @@ docs/specs/<feature-name>/   # 小写 kebab-case，一个功能一个目录
 
 ## 7. 交付与清理
 
-- 功能交付后直接删除 `docs/specs/<feature-name>/`，不保留归档目录；历史决策通过 `git log` 与提交说明追溯。
+- 功能交付后直接删除 `docs/specs/<feature-name>/`，不保留归档目录。
 - 删除前必须把 Spec 中长期有效的结论回写 `docs/specs/baseline.md` 的对应章节：已确定的命名、保留契约、既定业务规则。只服务于本次实现过程的临时内容（改动映射表、实施顺序、验证记录）不回写。
 - 结论未回写干净不得删除 Spec。
 - `docs/specs/` 只保留 `baseline.md` 和未完成的活动 Feature 目录，目录说明由本文件承担。

@@ -1,6 +1,6 @@
 # 项目基线
 
-本文件是 `claim-platform` 唯一长期有效的公共约束来源：产品范围、核心业务规则、技术约束、工程结构、架构分层、全局需求与范围之外。签收域的目标架构（服务定位、核心模型、状态与阶段、数据表归属、防腐层分工、异步与查询边界）同样以本文件为准：《Claim Sign Service 架构设计》已于 2026-10-24 全部回写本文件，不再单独维护文档文件，后续 Spec 直接引用本文件。功能级需求写在 `docs/specs/<feature-name>/`，只描述本功能的增量，不重复以下内容，也不得降低本文件的约束。
+本文件是 `claim-platform` 唯一长期有效的公共约束来源：产品范围、核心业务规则、技术约束、工程结构、架构分层、全局需求与范围之外。签收域的服务定位、核心模型、状态与阶段、数据表归属、防腐层分工、异步与查询边界均以本文件为准。功能级需求写在 `docs/specs/<feature-name>/`，只描述本功能的增量，不重复以下内容，也不得降低本文件的约束。
 
 规则的单一分工：任务流程与全部 Git 操作见 `docs/engineering/workflow.md`，Spec 的建与不建见 `docs/engineering/specification.md`，代码写法与 HTTP 响应细则见 `docs/engineering/implementation.md`，项目导航见 `README.md`。本文件不重复这三份规范的内容，只定义"所有功能都必须遵守"的边界。
 
@@ -13,7 +13,7 @@ Claim Platform（理赔平台）负责理赔链路的**前段交互**与**后段
 
 前段的内部链路固定为：`签收 → 材料处理 → 承保查询 → 审核同步 → 等待内部结果 → 案件生成`。承保系统、审核系统、内部案件系统是签收服务的外部依赖，其内部处理不属于平台范围。
 
-一次理赔申请签收在领域内统一称为 `Sign`，其平台标识统一称为 `SignNo`。平台不使用"受理（Intake）"作为领域词汇；任何遗留的 `intake` 命名都必须向 `Sign` 收敛。
+一次理赔申请签收在领域内统一称为 `Sign`，其平台标识统一称为 `SignNo`。平台不使用"受理（Intake）"作为领域词汇；类型、字段、表和契约命名统一使用 `Sign`。
 
 ## 2. 核心命名
 
@@ -117,7 +117,7 @@ flowchart LR
 | `t_claim_sign_case_rel` | `Sign → ClaimCase` 关系 |
 | `t_claim_sign_interaction_log` | 跨系统交互日志 |
 
-自增 `id` 只作内部主键，不参与业务语义；业务查询与跨系统对账一律使用 `signNo`、`externalApplyNo`、`materialNo`、`issueNo`、`caseNo`、`taskNo`。仓库内已无建表脚本，新建时直接按上表命名，不再产生 `t_claim_intake*` 遗留。
+自增 `id` 只作内部主键，不参与业务语义；业务查询与跨系统对账一律使用 `signNo`、`externalApplyNo`、`materialNo`、`issueNo`、`caseNo`、`taskNo`。建表脚本直接按上表命名，不使用 `t_claim_intake*`。
 
 ## 5. 限界上下文与职责
 
@@ -226,16 +226,16 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 - 事件只追加兼容字段；破坏性变更必须发布新版本事件，不得静默修改旧事件含义；消费者必须把重复投递、乱序、失败重试和人工介入纳入设计。
 - API 与事件只暴露调用方需要的稳定契约；对外契约（HTTP 路径、请求响应字段、错误码字符串、指标名、Redis 键结构）的变更必须由专门的契约版本化 Spec 承接。
 
-## 8. 保留对外契约
+## 8. 对外兼容契约
 
-以下是重建或演进时必须保持的外部兼容值。它们不是历史实现细节，也不是待办清单；变更必须由契约版本化 Spec 承接。
+以下外部兼容值必须保持；变更必须由契约版本化 Spec 承接。
 
 | 对象 | 保留值 | 说明 |
 | --- | --- | --- |
-| HTTP 路径 | `/api/v1/claim-intakes` | 对外契约，变更需版本化；`/api/v1/tenant-intakes` 已随 2026-10-24 签收服务精简删除，不再是保留契约 |
+| HTTP 路径 | `/api/v1/claim-intakes` | 对外契约，变更需版本化 |
 | 领域错误码 | `SignErrorCode` 全部 6 项的常量名与上报值：`CLAIM_INTAKE_NOT_FOUND`、`INVALID_INTAKE_STATUS`、`INTAKE_SUBMISSION_IN_PROGRESS`、`CLAIM_INTAKE_CONCURRENT_MODIFICATION`、`INTAKE_NUMBER_UNAVAILABLE`、`INTAKE_NUMBER_EXHAUSTED` | 面向调用方的机器可读契约，常量名与上报值一体；状态模型重构只改内部状态，不改上报值 |
-| 指标名 | `claim.intake.submission*`、`claim.intake.number.*` | 外部看板与告警按这些名字对接，重建时沿用 |
-| Redis 键前缀 | `claim:intake:submit:`、`claim:intake:replay:` | 幂等回放缓存与锁的键结构，重建时沿用 |
+| 指标名 | `claim.intake.submission*`、`claim.intake.number.*` | 外部看板与告警使用这些名字 |
+| Redis 键前缀 | `claim:intake:submit:`、`claim:intake:replay:` | 幂等回放缓存与锁的键结构 |
 | 数据库 | 库名 `claim_intake_db` | 表名与列名按第 4 节的数据表归属执行 |
 
 未列出的对外契约不得据此推断为可变更；需要变更时同样由契约版本化 Spec 承接。
@@ -276,12 +276,10 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 
 ## 12. 与功能 Spec 的关系
 
-- 本文件已吸收《Claim Sign Service 架构设计》作为签收域唯一依据，该蓝本不再单独维护文件；签收域的长期结论只在本文件生效。
 - 功能 Spec 只写本功能的增量需求与设计，公共内容引用本文件而不复制。
 - 功能实现只能细化本文件，不能绕过或降低其中的约束；与 §8 保留契约冲突时，以本文件为准。
 - 修改对外 API、领域事件、共享契约、数据库边界、租户模型或功能域划分时，必须先更新本文件并经用户确认，再动代码。
 - 功能交付后其 Spec 直接删除，其中长期有效的结论（已定命名、保留契约、既定约束）必须回写本文件的对应章节。
 - 实现细节不进本文件，由功能 Spec 设计：SQL DDL 与迁移脚本、`SignNo` 格式与 Redis Key 及恢复逻辑、Task 状态机与重试与超时恢复、MQ Topic 与 Tag 与 Consumer、Cache Key 与 TTL、租户 Adapter 落地、承保与审核接口、问题件规则、幂等键取值、单元测试与集成测试与压测。
-- 本文件不登记实现进度、能力待办或历史过程：当前仓库状态见 README，当前交付范围见活动 Feature Spec，历史决策通过 Git 提交追溯。
 - 开发链路固定为：架构（本文件）→ `requirements.md` → `design.md` → `tasks.md` → 实现。
-- 规则冲突时的权威顺序：`docs/specs/baseline.md` → `docs/engineering/*.md` → 代码与测试现状。
+- 规则冲突时的权威顺序：`docs/specs/baseline.md` → `docs/engineering/*.md` → 代码与测试。
