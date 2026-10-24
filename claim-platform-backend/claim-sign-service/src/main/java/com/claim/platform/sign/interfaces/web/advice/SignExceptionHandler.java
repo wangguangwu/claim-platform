@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -35,10 +36,10 @@ public class SignExceptionHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(SignExceptionHandler.class);
 
     /**
-     * 返回请求参数校验失败，不记录原始敏感值。
+     * 返回请求参数校验失败或请求体不可解析，不记录原始敏感值与报文内容。
      */
     @ExceptionHandler({MethodArgumentNotValidException.class, HandlerMethodValidationException.class,
-            IllegalArgumentException.class})
+            HttpMessageNotReadableException.class, IllegalArgumentException.class})
     public ResponseEntity<ApiResult<Void>> validation(Exception exception, HttpServletRequest request) {
         String traceId = traceId(request);
         String field = exception instanceof MethodArgumentNotValidException validation

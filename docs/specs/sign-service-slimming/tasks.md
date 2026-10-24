@@ -13,4 +13,7 @@
 - [x] 9. 残留自检：全仓不再出现 `interfaces.tenant`、`domain.model.person`、`*InfoDO`、`TenantSignController` 引用；无只被已删代码使用的残留类型
 - [x] 10. 数量核对：实测主代码 90 文件 / 4032 行、测试 26 文件 / 3641 行；文件数与清单一致，行数差来自就地修改，已回改设计 §5 记录实测
 - [x] 11. 确认 `claim-platform-mysql` 与 `claim-platform-redis` 健康后执行 `mvn -B clean verify`，核对集成用例执行数不为零（150 用例、0 失败、0 错误、0 跳过）。工作区内的 `target/classes` 会被后台 Eclipse JDT 语言服务写入 `Unresolved compilation problems` 的坏类文件，验证在 `/tmp` 下的同内容副本执行
-- [ ] 12. 显式 `git add` 本任务文件后提交，提交说明记录删除文件数、行数与契约影响
+- [x] 12. 显式 `git add` 本任务文件后提交，提交说明记录删除文件数、行数与契约影响
+- [x] 13. 追加：标准入口请求体不可解析映射为 400 `REQUEST_VALIDATION_FAILED`，删除基线 §8 对应偏差行并补测试
+- [x] 14. 追加：删除零引用死类型 `domain/model/MaterialType`
+- [x] 15. 追加项在 `/tmp` 未监视副本通过 `mvn -B clean verify` 后单独提交

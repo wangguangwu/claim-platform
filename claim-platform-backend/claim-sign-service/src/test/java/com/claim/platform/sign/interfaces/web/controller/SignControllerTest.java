@@ -59,6 +59,18 @@ class SignControllerTest {
     }
 
     @Test
+    void shouldReturnBadRequestWithoutBodyContentWhenJsonIsUnparseable() throws Exception {
+        mockMvc.perform(post("/api/v1/claim-intakes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"externalApplyNo\":"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("REQUEST_VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.traceId").isString())
+                .andExpect(jsonPath("$.data").doesNotExist());
+    }
+
+    @Test
     void shouldReturnNotFoundEnvelopeForSignOutsideCurrentTenant() throws Exception {
         given(contextResolver.resolve(any())).willReturn(new GatewayRequestContext("tenant-a", "trace-002"));
         given(queryService.get(eq("tenant-a"), eq("SIGN999"))).willThrow(new SignNotFoundException());

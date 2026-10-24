@@ -161,7 +161,6 @@
 ## 8. 本轮不做
 
 - 不为已删除的租户入口保留任何开关、空实现或 `@Deprecated` 壳。
-- 不为 `/api/v1/claim-intakes` 的 `HttpMessageNotReadableException` 补 400 映射（当前落 `INTERNAL_ERROR` 500）：属既有缺陷，登记为偏差，不与删除混在一起。
 - 不改数据库 Schema，不删列、不迁移历史行。
 - 不改指标名、Redis 键前缀与 `claim.sign.*` 配置命名空间。
 - 不重排包结构；`interfaces/tenant` 整包消失，不建替代包。
@@ -172,3 +171,11 @@
 - 风险 2：`SignPersistenceConverter` 使用 `unmappedTargetPolicy = ERROR`，删字段时 MapStruct 会因未映射目标编译失败。缓解：§4.1 已同步删除人员映射，编译期即可暴露遗漏，不会静默丢字段。
 - 风险 3：人员四列转为不写入后，依赖这些列的下游（无代码依赖，仅人工查询/报表）读到 NULL。缓解：登记为 §8 偏差行，交付说明里点名列名。
 - 风险 4：并发用例依赖本地 MySQL/Redis，容器不可用时静默跳过，会让"测试全绿"失真。缓解：验证前确认 `claim-platform-mysql`、`claim-platform-redis` 健康，并在提交说明里记录实际执行的集成用例数。
+- 风险 5：工作区的 `target/classes` 会被后台 Java 语言服务（Eclipse JDT，"proceed on errors"）写入带 `Unresolved compilation problems` 的坏类文件，Maven 刚编译完就被覆盖，`mvn verify` 报 `NoClassDefFoundError`，与代码本身无关。缓解：门禁在 `/tmp` 下与工作区内容一致的未监视副本执行；副本内 `Tests run: 150, Failures: 0, Errors: 0, Skipped: 0` 即为通过依据。
+
+## 10. 追加：收敛精简遗留的解析失败偏差
+
+用户要求处理已知偏差后，本轮追加两件事，都只作用于标准入口，不引入新契约值：
+
+- `HttpMessageNotReadableException` 并入既有校验 handler，请求体不可解析返回 400 `REQUEST_VALIDATION_FAILED`（既有技术错误码），响应与日志都不带报文内容；基线 §8 相应偏差行删除。
+- 删除 `domain/model/MaterialType`：其唯一职责是承载租户协议私有编码映射，随簇 A 一起失效，全仓零引用。

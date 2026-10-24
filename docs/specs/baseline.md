@@ -200,7 +200,6 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 | 前端六个功能域 | `src` 仅有占位文件 | 前端 Spec，暂缓、不排期 |
 | `ClaimCase` 聚合归属与案件查询落点 | 架构蓝本未定义；前端有 `case` 功能域，§6 的查询服务清单中没有 `CaseQueryService` | 需先修订本基线再实现 |
 | `t_claim_intake` 的 `applicant_info`、`accident_person_info`、`main_insured_info`、`payee_info` | 代码不再写入这四列；历史行不迁移、不删除 | 数据库重设计 Spec 承接列清理 |
-| 标准入口的请求体解析失败 | 报文不合法落到 `Exception` 处理器返回 `INTERNAL_ERROR` 500，未映射为 400 | 契约版本化 Spec，暂缓、不排期 |
 
 ## 9. 前端约束
 
@@ -242,3 +241,4 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 | 2026-10-23 | 按《Claim Platform 架构设计》整体重写：领域词汇统一为 Sign/Push；后端固定为网关 + 签收服务 + 案件推送服务三服务，明确不新增微服务、不建独立查询服务；应用层固化为"命令 + Handler 写入、QueryService 读取"的混合分层；新增核心命名权威表与保留契约/已知偏差登记表；吸收归档 Spec 的长期结论（三级幂等、发号高水位兜底、Outbox、脱敏红线、平台级全局编号的跨租户读取边界）；Agent 与运营诊断移出产品范围，仅保留为范围之外 | 用户决策：活动文档从零重写、engineering 只校订、归档 Spec 全部删除、以架构设计文档为唯一蓝本 |
 | 2026-10-23 | 细化多租户唯一约束与查询条款：允许平台级全局业务编号，并限定发号所需的跨租户聚合最大值读取 | 项目级评审通过 |
 | 2026-10-24 | 签收服务精简回写：租户协议适配整簇与人员强类型建模删除，`/api/v1/tenant-intakes` 及 `MALFORMED_REQUEST`、`TENANT_PROTOCOL_NOT_SUPPORTED` 移出保留契约；§7 新增"签收服务不建模人员明细"；§8 偏差表补记四列人员 JSON 不再写入与标准入口解析失败 500，未实现项统一标注暂缓、不排期；发号机制、三级幂等、指标名与 Redis 键不变 | 用户确认契约变更后实施 |
+| 2026-10-24 | 关闭上一条登记的解析失败偏差：标准入口请求体不可解析改为 400 `REQUEST_VALIDATION_FAILED`，不返回报文内容；删除只服务于已废弃租户协议映射的死类型 `MaterialType`。§8 偏差表其余项均为"能力未实现"，需各自 Spec 承接 | 用户要求处理已知偏差 |
