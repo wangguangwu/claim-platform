@@ -41,7 +41,7 @@
 
 - 只修改当前任务范围内的代码，不借机重构无关代码、不顺手调整格式之外的公共逻辑。
 - 不做任务范围外的重构，包括"看到就不顺眼"的命名与结构调整。
-- 不随意调整公共 API、共享契约、领域事件字段和响应信封语义；确实需要变更时按 `docs/engineering/specification.md` 更新 Spec，触及项目级边界时按 `docs/specs/baseline.md`「与功能 Spec 的关系」先更新基线。
+- 不随意调整公共 API、共享契约、领域事件字段和响应信封语义；确实需要变更时按 `docs/engineering/specification.md` 更新 Spec，触及项目级边界时按 `docs/specs/baseline.md`「与功能 Spec 和架构基准的关系」先更新基线。
 - 任务范围外发现的问题记录后反馈给用户，不顺手改。
 
 ## 4. 测试

@@ -44,8 +44,12 @@ Claim Platform（理赔平台）负责理赔链路的**前段交互**与**后段
 | 租户上下文 | TenantContext | Edge & Platform |
 | 租户适配层 | Tenant Adapter + Pipeline（固定角色名：`Parser`、`Validator`、`Converter`） | Sign |
 | 保司推送适配器 | InsurerPushAdapter | Push |
+| 推送任务 | PushTask | Push |
+| 推送记录 | PushRecord | Push |
+| 推送回执 | PushReceipt | Push |
+| 推送策略 | PushStrategy | Push |
 
-代码内已固化、跨契约使用的补充命名：`tenantCode`（租户编码）、`externalApplyNo`（租户侧申请号，与 `tenantCode` 组成签收幂等键）、`protocolVersion`（租户协议版本）、`traceId`（链路标识）。
+代码内已固化、跨契约使用的补充命名：`tenantCode`（租户编码）、`externalApplyNo`（租户侧申请号，与 `tenantCode` 组成签收幂等键）、`issueNo`（平台问题件定位号，在 `tenantCode + signNo` 范围内唯一）、`protocolVersion`（租户协议版本）、`traceId`（链路标识）。
 
 命名禁用规则：
 
@@ -66,7 +70,8 @@ Claim Platform（理赔平台）负责理赔链路的**前段交互**与**后段
 - 持久化：所有持久化服务统一使用 MyBatis-Plus（版本以根 `pom.xml` 为准）；不使用 JPA。
 - 关系型表不建立物理外键；聚合间关联通过稳定业务标识与必要索引维护，写入时由应用层校验关联事实，删除与状态变更不得依赖数据库级级联。
 - 对象映射：MapStruct（版本以根 `pom.xml` 为准），只做对象转换，不承载业务规则与状态流转。
-- 签收服务的存储与中间件固定为 MySQL（业务事实）、Redis（发号、缓存、锁）、RocketMQ（异步事件）、XXL-Job（状态补偿与对账）、Nacos（网关配置）、OSS（材料原文与影像）；不引入其他存储。材料原文不落库，库内只保留材料信息与地址引用。
+- 签收服务的生产存储与中间件固定为 MySQL（业务事实）、Redis（发号、缓存、锁）、RocketMQ（异步事件）、XXL-Job（状态补偿与对账）、Nacos（网关配置）、OSS（材料原文与影像）；不引入其他生产存储。Docker Compose 中的 OSS 兼容实现仅用于本地开发，可替换且不得被表述为生产 OSS 选型。材料原文不落库，库内只保留材料信息与地址引用。
+- 所有服务自有库的建表与变更统一使用 Flyway 版本化 SQL：脚本置于所属服务的 `src/main/resources/db/migration`，随该服务发布执行；MyBatis-Plus 仍是唯一的业务数据访问框架。不得以手工建表、启动时临时 DDL 或其他迁移框架替代。
 - 版本以根 `pom.xml` 与各模块 `package.json` 为准，不得自行升级 JDK、Spring Boot 或核心依赖。
 - 交付必须通过 `docs/engineering/workflow.md` 第 6 节规定的验证门禁。
 
@@ -113,11 +118,11 @@ flowchart LR
 | --- | --- |
 | `t_claim_sign` | 签收主数据与状态、四类人员信息与扩展信息 |
 | `t_claim_sign_material` | 材料信息、上传批次、来源与地址引用、下载处理标记 |
-| `t_claim_sign_issue` | 问题件：审核人、原因、是否已同步租户、是否需要补材 |
+| `t_claim_sign_issue` | 问题件：平台问题件定位号、审核人、原因、是否已同步租户、是否需要补材 |
 | `t_claim_sign_case_rel` | `Sign → ClaimCase` 关系（一个签收可关联多个案件） |
 | `t_claim_sign_interaction_log` | 跨系统交互日志 |
 
-自增 `id` 只作内部主键，不参与业务语义；业务查询与跨系统对账一律使用 `signNo`、`externalApplyNo`、`caseNo`、`batchNo`。建表脚本直接按上表命名。
+自增 `id` 只作内部主键，不参与业务语义；业务查询与跨系统对账一律使用 `signNo`、`externalApplyNo`、`caseNo`、`batchNo`、`issueNo`。其中 `issueNo` 只在 `tenantCode + signNo` 范围内唯一定位一条问题件，不要求全局唯一。建表脚本直接按上表命名。
 
 ## 5. 限界上下文与职责
 
@@ -134,6 +139,7 @@ flowchart LR
 - **租户协议与业务语义差异统一由签收服务 `interfaces/acl` 的 Tenant Adapter + Pipeline 承载**：验签与加解密、`Parser` 解析租户报文、`Validator` 参数与业务校验、`Converter` 标准模型转换与响应的签名加密。租户分支不得写成 `if (tenantCode)` 散落，也不得进入用例与领域模型。
 - 每个下游服务必须再次校验调用者与租户范围，不能只依赖网关透传。
 - 承保、审核系统的调用同样通过对应出站 Adapter 隔离，具体类型名与租户清单由租户接入 Spec 定义。
+- 生产认证协议交付前，`local` profile 仅可由 Gateway 校验本地开发测试凭证并建立测试 `TenantContext`；凭证与租户映射必须来自本地受控配置，不得从请求体、路径或查询参数取得。该能力不得在非 `local` profile 启用，且不得使用真实生产凭证；下游服务仍须校验 Gateway 发出的调用者与租户范围。
 
 ## 6. 分层与依赖方向
 
@@ -175,7 +181,7 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 
 聚合与领域行为：
 
-- 签收域的模型固定为五个：`Sign`（业务标识 `tenantCode + externalApplyNo`，平台标识 `signNo`）、`Material`、`ClaimIssue`、`CaseRelation`、`InteractionLog`；不在签收域新增或删除聚合，变更必须先修订本文件。
+- 签收域的模型固定为五个：`Sign`（业务标识 `tenantCode + externalApplyNo`，平台标识 `signNo`）、`Material`、`ClaimIssue`（平台标识 `issueNo`）、`CaseRelation`、`InteractionLog`；不在签收域新增或删除聚合，变更必须先修订本文件。
 - 签收流程的业务动作固定为：影像与材料处理、有效保单查询、自动承保、审核交付、问题件下发与回复、撤销通知。不引入通用工作流引擎，也不建立独立异步任务模型。
 - 聚合必须显式定义标识、一致性边界、不变量、合法状态转换、并发策略与幂等键；这些规则不分散到 Controller、Repository 或定时任务中。聚合之间通过领域事件最终一致协作。
 - 撤销是 `Sign` 聚合的领域行为（`sign.revoke(...)`），不单独建立 Withdrawal 聚合；问题件建模为独立 `ClaimIssue`，MVP 不单独建立 `IssueReply`，回复内容与补充材料都记在 `ClaimIssue` 与材料关系内。
@@ -190,8 +196,8 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 
 - `Sign` 主模型只维护一个状态字段：`signStatus` ∈ `PENDING_ACCEPT` / `ACCEPT_SUCCESS` / `ACCEPT_FAILED` / `AUTO_UNDERWRITING` / `WAIT_AUDIT_ACCEPT` / `SIGN_COMPLETED` / `ISSUE_CASE` / `CLAIM_REVOKED`。`ACCEPT_FAILED`、`SIGN_COMPLETED`、`CLAIM_REVOKED` 为终态，进入条件与流转图见签收服务架构基准 §2。
 - `Material`、`ClaimIssue` 各自维护处理标记，不回写进 `Sign` 主模型；`Sign` 的状态推进规则集中在 `Sign` 聚合内，只有审核系统的问题件事件可以使 `Sign` 进入 `ISSUE_CASE`。
-- 失败分类固定：影像处理失败置 `ACCEPT_FAILED` 并告警，不自动恢复；审核系统打回置 `ISSUE_CASE`，等待租户回复；自动承保未成功保持 `AUTO_UNDERWRITING`，由补偿按幂等条件重试或转人工。技术抖动只表现为事件重复投递，不产生额外的失败状态。
-- 撤销只能由 `Sign` 聚合行为完成并置 `CLAIM_REVOKED`；进入 `CLAIM_REVOKED` 后，审核结果、问题件、承保与补材等迟到事实只记录交互并告警，不得推进状态。
+- 失败分类固定：影像处理失败置 `ACCEPT_FAILED` 并产生可定位信号，不自动恢复；审核系统打回置 `ISSUE_CASE`，等待租户回复；自动承保未成功保持 `AUTO_UNDERWRITING`，由补偿按幂等条件重试或转人工。技术抖动只表现为事件重复投递，不产生额外的失败状态。
+- 撤销只能由 `Sign` 聚合行为完成并置 `CLAIM_REVOKED`；进入 `CLAIM_REVOKED` 后，审核结果、问题件、承保与补材等迟到事实只记录交互并产生可定位信号，不得推进状态。
 
 租户与数据隔离：
 
@@ -201,12 +207,12 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 
 异步事件与缓存边界：
 
-- 异步链路固定为 `状态事实落库 → 领域事件 → RocketMQ → Consumer 状态校验 → 状态推进`；不建立独立任务模型，`Sign` 状态本身即待执行意图。
+- 签收异步链路固定为 `状态事实落库 → 领域事件 → RocketMQ → Consumer 状态校验 → 状态推进`；签收域不建立独立任务模型，`Sign` 状态本身即待执行意图。
 - MQ 投递失败与流程中断由 XXL-Job 按当前状态执行恢复策略补偿，恢复表见签收服务架构基准 §4.3；补偿只重发事件或重试幂等外部调用，不直接改写业务状态。
-- 跨系统调用一律按 §10 记录 `InteractionLog`，由它承担执行审计；不得为重试、超时或死信再建任务表或执行事件历史表。交互审计不得记录材料原文和个人信息。
+- 签收域的跨系统调用一律按 §10 记录 `InteractionLog`，由它承担执行审计；不得为签收重试、超时或死信再建任务表或执行事件历史表。交互审计不得记录材料原文和个人信息。
 - Consumer 必须支持重复消费，进入业务锁后先校验当前 `signStatus` 是否允许本次推进，不允许时安全结束并记录重复处理结果。
 - 查询采用 Cache-Aside，MySQL 是业务状态的事实来源；缓存不得参与状态推进、并发判断与撤销判断。
-- 有效保单查询、自动承保、审核交付、问题件通知等外部调用必须携带业务幂等键（`signNo`），重复调用不得产生重复业务副作用。
+- 有效保单查询、自动承保、审核交付、问题件通知等外部调用必须携带业务幂等键（`signNo`），重复调用不得产生重复业务副作用。问题件通知与回复另用 `issueNo` 定位到具体一条 `ClaimIssue`；`issueNo` 是定位标识，不是幂等键。
 
 一致性与幂等：
 
@@ -263,8 +269,8 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 
 ## 10. 可观测与全局需求
 
-- 核心请求、事件消费、补偿和外部调用必须关联 `traceId` 与 `tenantCode`，并在已知时关联 `signNo`、`externalApplyNo`、`caseNo`。
-- Metrics、Logs、Traces 必须支持按服务、租户和签收状态定位；失败、重复投递、积压、补偿重发、限流和外部依赖错误必须可告警。
+- 核心请求、事件消费、补偿和外部调用必须关联 `traceId` 与 `tenantCode`，并在已知时关联 `signNo`、`externalApplyNo`、`caseNo`、`issueNo`。
+- Metrics、Logs、Traces 必须支持按服务、租户和签收状态定位；失败、重复投递、积压、补偿重发、限流和外部依赖错误必须产生可定位的信号。告警通道与规则尚未交付前，负责该链路的 Feature 至少输出含 `traceId`、`tenantCode`、业务标识、失败类别和恢复动作的结构化日志；跨系统场景同时记录 `InteractionLog`。不得把上述日志或审计记录表述为已配置的生产告警。
 - 网关按租户、调用方和路由执行认证、限流与 Trace 透传；推送按租户、目标系统和协议适配器隔离并发与配额。
 - 配置规则按环境和租户隔离，变更必须记录变更人、时间、生效范围和前后值摘要。
 - 聚合查询发生局部依赖失败时，必须返回已获得数据、失败来源和 `traceId`，不得将局部失败伪装为空结果。
@@ -284,7 +290,7 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 - Agent 信息收集、证据归纳与处置建议能力：目标架构未纳入，如需建设必须先修订本基线，并在"不新增微服务"约束下确定归属。
 - 运营查询与异常诊断上下文：同上，在明确用例出现前不实现。
 - `ClaimCase` 业务事实的创建与归属：案件业务事实由内部案件系统拥有，签收侧只维护 `Sign → ClaimCase` 关系（`CaseRelation`），案件号随审核签收结果返回，不落案件业务字段。
-- 独立任务模型、通用工作流引擎与执行事件历史表：签收流程的状态补偿替代任务编排，如需重建必须先修订本文件。
+- 签收域的独立任务模型、通用工作流引擎与执行事件历史表：签收流程的状态补偿替代任务编排，如需重建必须先修订本文件。Push 上下文的 `PushTask`、`PushRecord`、`PushReceipt` 与 `PushStrategy` 是其独立领域事实，不受本项限制。
 - 跨上下文共享数据库、共享业务表与共享业务实体。
 
 ## 12. 与功能 Spec 和架构基准的关系

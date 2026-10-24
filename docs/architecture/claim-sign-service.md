@@ -4,7 +4,7 @@
 
 跨服务的公共约束仍以 [项目基线](../specs/baseline.md) 为准：命名词表、技术栈、服务边界、对外契约固定值、租户隔离与脱敏红线。域内细节与本文件冲突时按"平台级优先"报告并修订，不得各写一份。
 
-活动 Feature 的需求与实现增量见 [签收流程需求](../specs/sign-workflow/requirements.md) 与 [签收流程设计](../specs/sign-workflow/design.md)，不复述本文件。
+活动 Feature 的稳定领域内核见 [签收内核需求](../specs/sign-core/requirements.md) 与 [签收内核设计](../specs/sign-core/design.md)；租户适配与外部协同见 [签收适配与协同需求](../specs/sign-adaptation-collaboration/requirements.md)。本文件不复述这些增量。
 
 ## 1. 架构
 
@@ -67,6 +67,8 @@ flowchart TB
 
 租户 HTTP 请求经过独立 Gateway 后进入理赔签收平台，由 Tenant Adapter + Pipeline 完成租户协议标准化。
 
+Pipeline 的角色划分与编排顺序是域内长期结构；某个真实租户的验签算法、加解密方式与报文字段属于该租户自己的接入范围，由对应的租户接入 Spec 落地，平台不代替租户决定协议。本地开发用 `local` profile 的测试租户 Pipeline 验证抽象与编排，它不代表任何真实租户的报文。
+
 落点映射（包结构归属见基线 §6）：适配层 = `interfaces/acl`，业务层 = `application` + `domain`，异步执行层 = `interfaces` 的消息入口 + `application/task` 编排，基础设施层 = `infrastructure`。
 
 ### 1.2 同步与异步分界
@@ -77,7 +79,7 @@ flowchart TB
 
 事务提交后发布签收受理事件，影像处理、承保判断、自动承保、审核交付均异步执行。
 
-XXL-Job 扫描长时间未推进的申请并重新发布对应业务事件，用于 MQ 投递失败或流程中断后的补偿，不维护独立任务模型。
+XXL-Job 扫描长时间未推进的申请并重新发布对应业务事件，用于 MQ 投递失败或流程中断后的补偿，不维护独立任务模型。签收服务必须注册执行器、注册补偿 Handler，并由部署配置创建对应调度；仅启动 XXL-Job Admin 容器不构成补偿能力已交付。
 
 ### 1.3 外部协同
 
@@ -180,8 +182,10 @@ erDiagram
         bigint id PK "主键ID"
         varchar tenant_code "租户编码"
         varchar sign_no "平台签收编号"
+        varchar issue_no "平台问题件定位号"
         varchar auditor "审核人"
         varchar reason "问题件原因"
+        json ext_json "问题件扩展信息"
         tinyint is_sync_tenant "是否已同步租户"
         tinyint is_supplement "是否需要补充材料"
         datetime created_at "创建时间"
@@ -221,11 +225,12 @@ erDiagram
 补充约束：
 
 - `t_claim_sign`：`sign_no` 全局唯一，`tenant_code + external_apply_no` 业务唯一。
+- `t_claim_sign_issue`：`issue_no` 由签收服务在保存问题时发放，在 `tenant_code + sign_no` 范围内唯一，不要求全局唯一，因此不占用跨租户发号通道。
 - `t_claim_sign_case_rel`：一个 `sign_no` 可以关联多个 `case_no`。
 - 表之间通过 `tenant_code + sign_no` 逻辑关联，不建立物理外键。
 - `t_claim_sign_interaction_log` 为追加型日志表，只保留 `created_at`，不需要 `updated_at` 和 `is_deleted`。
 - 人员四类信息（申请人、出险人、主被保险人、领款人）以 JSON 列整体入库，不建领域对象与结构化子字段；只有 `applicant_name` 作为可检索列。
-- `interaction_type`、`direction`、`source_system`、`target_system` 取值按基线 §10 登记；`error_code`、`cost_ms` 用于告警与定位，不得记录请求响应原文与材料内容。
+- `interaction_type`、`direction`、`source_system`、`target_system` 取值按基线 §10 登记；`error_code`、`cost_ms` 用于可定位信号与诊断，不得记录请求响应原文与材料内容。
 
 一个签收申请可以对应多个案件：
 
@@ -238,7 +243,7 @@ signNo
 
 审核系统签收成功后返回案件信息，平台保存 `1:N` 的 CaseRelation，再将申请推进至 `SIGN_COMPLETED`。
 
-待确认：问题件缺少业务定位标识，多次打回场景下租户回复与补材如何绑定到具体一条 `ClaimIssue` 尚未确定；确定后须先回写基线 §4 的业务标识清单，再增列与契约字段。
+问题件的多次打回绑定不依赖对外契约：每条 `ClaimIssue` 由平台自有的 `issue_no` 定位，租户回复与补充材料按 `signNo + issueNo` 绑定，`ext_json` 承载审核侧原样摘要。平台契约 A 档只决定**对外字段名、消息载荷与回复绑定语义**，一律映射到已存在的 `issue_no`，不因对外命名变更 DDL；确实需要新的可检索列时，必须先回写本节列定义，再作为独立版本化 `ALTER` 迁移交付，不得在实现里猜测列名。
 
 ## 4. 核心时序
 
@@ -258,6 +263,7 @@ sequenceDiagram
     participant S as SignService
     participant L as Redisson
     participant DB as MySQL
+    participant EP as EventPublisher 端口
 
     T->>G: 提交理赔申请
     G->>G: 鉴权 / tenantCode / 限流
@@ -310,6 +316,11 @@ sequenceDiagram
         end
 
         S->>L: 释放业务锁
+
+        opt 本次创建成功
+            S->>EP: 事务提交后表达 SIGN_ACCEPT 事件意图
+            EP-->>S: 投递结果；失败只记录结构化日志与恢复事实
+        end
     end
 
     S-->>P: SignResult
@@ -324,7 +335,7 @@ sequenceDiagram
 - `tenantCode + externalApplyNo` 业务锁，保证并发创建串行化
 - `UNIQUE(tenant_code, external_apply_no)` 作为最终数据库兜底
 
-同步请求结束后，平台异步发布 `SIGN_ACCEPT` 事件启动后续受理流程；事件发布失败时由 XXL-Job 根据 `PENDING_ACCEPT` 状态补偿。
+同步请求结束后，平台异步发布 `SIGN_ACCEPT` 事件启动后续受理流程。创建事务提交后，内核只通过 `EventPublisher` 端口表达事件意图，具体 MQ 投递由适配与协同实现；端口失败不回滚已提交事实、不改变同步响应，由 XXL-Job 按 `PENDING_ACCEPT` 状态补偿重发。回放已存在申请时不重复表达事件意图。
 
 ### 4.2 异步受理与审核交付
 
@@ -339,7 +350,6 @@ sequenceDiagram
     participant MQ as RocketMQ
     participant C as SignConsumer
     participant L as Redisson
-    participant S as SignService
     participant DB as MySQL
     participant O as OSS
     participant I as 承保系统
@@ -388,6 +398,8 @@ sequenceDiagram
 
         alt 存在有效保单
             C->>MQ: 发布审核任务
+            MQ-->>C: 投递结果
+            MQ-->>A: 审核任务
 
         else 无有效保单
             C->>L: 获取 signNo 业务锁
@@ -404,26 +416,28 @@ sequenceDiagram
 
             alt 自动承保成功
                 C->>MQ: 发布审核任务
+                MQ-->>C: 投递结果
+                MQ-->>A: 审核任务
             else 自动承保失败
-                C-->>C: 保持 AUTO_UNDERWRITING / 等待恢复
+                C-->>C: 保持 AUTO_UNDERWRITING / 等待 §4.3 恢复
             end
         end
 
-        MQ-->>A: 审核任务
+        opt 审核任务已成功投递
+            C->>L: 获取 signNo 业务锁
 
-        C->>L: 获取 signNo 业务锁
+            critical 状态更新
+                C->>DB: 校验当前状态
 
-        critical 状态更新
-            C->>DB: 校验当前状态
-
-            alt 未被撤销
-                C->>DB: Sign -> WAIT_AUDIT_ACCEPT
-            else CLAIM_REVOKED
-                C-->>C: 不再推进状态
+                alt 未被撤销
+                    C->>DB: Sign -> WAIT_AUDIT_ACCEPT
+                else CLAIM_REVOKED
+                    C-->>C: 不再推进状态
+                end
             end
-        end
 
-        C->>L: 释放业务锁
+            C->>L: 释放业务锁
+        end
     end
 ```
 
@@ -432,17 +446,19 @@ sequenceDiagram
 - 自动承保以 `signNo` 作为业务幂等标识
 - 审核任务使用稳定业务标识避免重复创建
 - 重复 MQ 消息通过当前 `sign_status` 校验安全结束
+- `WAIT_AUDIT_ACCEPT` 只在审核任务投递成功后进入；投递或承保失败时保持原状态，由 §4.3 恢复，不得凭“已消费消息”推进状态
+- 每次外部调用（OSS、承保、审核任务）以独立事务追加 `InteractionLog`，记录不进入状态锁范围
 
 ### 4.3 XXL-Job 补偿
 
-XXL-Job 不统一"重放上一动作"，而是根据当前状态执行明确的恢复策略。
+XXL-Job 不统一"重放上一动作"，而是根据当前状态执行明确的恢复策略。告警通道未交付期间，表中“人工处理”与“超时”均输出基线 §10 规定的结构化日志；跨系统动作另写 `InteractionLog`，不宣称已发送生产告警。
 
 | 当前状态 | 恢复策略 |
 |---|---|
 | `PENDING_ACCEPT` | 补发 `SIGN_ACCEPT` |
 | `ACCEPT_SUCCESS` | 重新查询有效保单，并继续后续流程 |
-| `AUTO_UNDERWRITING` | 承保接口支持幂等时允许重试；否则告警人工处理 |
-| `WAIT_AUDIT_ACCEPT` | 不重复提交审核任务，超时告警 |
+| `AUTO_UNDERWRITING` | 承保接口支持幂等时允许重试；否则记录人工处理信号 |
+| `WAIT_AUDIT_ACCEPT` | 不重复提交审核任务，记录超时信号 |
 | `ISSUE_CASE` | 不自动恢复，等待租户回复 |
 | `ACCEPT_FAILED` | 不自动恢复 |
 | `SIGN_COMPLETED` | 不处理 |
@@ -476,12 +492,12 @@ sequenceDiagram
             alt 承保接口支持幂等
                 S->>I: 使用 signNo 重试自动承保
             else 不满足自动恢复条件
-                S-->>S: 记录告警
+                S-->>S: 记录人工处理信号
             end
 
         else WAIT_AUDIT_ACCEPT
             J->>S: 检查等待时长
-            S-->>S: 超时告警，不重复提交审核
+            S-->>S: 记录超时信号，不重复提交审核
 
         else CLAIM_REVOKED
             J->>S: 检查撤销通知结果
@@ -526,14 +542,14 @@ sequenceDiagram
 
         else CLAIM_REVOKED
             C->>DB: 记录迟到回调
-            C-->>C: 拒绝状态推进并告警
+            C-->>C: 拒绝状态推进并记录可定位信号
 
         else SIGN_COMPLETED
             C-->>C: 重复消息幂等结束
 
         else 状态不允许
             C->>DB: 记录异常事件
-            C-->>C: 拒绝状态推进并告警
+            C-->>C: 拒绝状态推进并记录可定位信号
         end
     end
 
@@ -569,10 +585,11 @@ sequenceDiagram
 
         alt SIGN_COMPLETED / CLAIM_REVOKED
             C->>DB: 记录迟到问题件
-            C-->>C: 拒绝状态推进并告警
+            C-->>C: 拒绝状态推进并记录可定位信号
 
         else 正常处理
-            C->>DB: 保存 ClaimIssue
+            C->>C: 发放 issueNo
+            C->>DB: 保存 ClaimIssue（issueNo；审核侧摘要入 ext_json）
             C->>DB: Sign -> ISSUE_CASE
         end
     end
@@ -580,8 +597,9 @@ sequenceDiagram
     C->>L: 释放业务锁
 
     opt 问题件保存成功
-        C->>AD: 转换租户问题件模型
+        C->>AD: 转换租户问题件模型（携带平台 issueNo）
         AD->>T: 下发问题件
+        C->>DB: 独立事务追加 ISSUE_NOTIFY 交互日志
     end
 ```
 
@@ -590,10 +608,13 @@ sequenceDiagram
 - 只有审核系统可以使 Sign **进入** `ISSUE_CASE`
 - 平台处理问题件回复后可以使 Sign **离开** `ISSUE_CASE`
 - 后续审核系统再次打回时，可以再次进入 `ISSUE_CASE`
+- 每次打回是一条独立的 `ClaimIssue`，由 `issueNo` 定位，新的问题件不覆盖历史回复与补材关系
 
 ### 4.6 问题件回复与补材
 
 租户提交问题件回复时，同步链路只保存回复和补材关系；文件处理和审核提交继续异步执行。
+
+回复与补材必须绑定到一条具体的 `ClaimIssue`：租户侧定位字段的名称与载荷由平台契约 A 档确认，在 `interfaces/acl` 内立即映射为平台 `issueNo`，应用层与领域层只认识 `issueNo`，不引入第二套问题件标识。
 
 ```mermaid
 sequenceDiagram
@@ -616,20 +637,21 @@ sequenceDiagram
     AD->>AD: 验签 / 解密 / 校验 / 转换
     AD->>S: 标准问题件回复
 
-    S->>DB: 校验 Sign / Issue
-    S->>DB: 保存回复及补材关系
-    S->>MQ: 发布 ISSUE_REPLY
+    S->>DB: 校验 Sign = ISSUE_CASE 且 issueNo 属于该 signNo
+    S->>DB: 按 issueNo 保存回复及补材关系
+    S->>MQ: 发布 ISSUE_REPLY（signNo + issueNo）
     S-->>AD: 接收成功
     AD-->>G: 租户响应
     G-->>T: 返回接收结果
 
-    MQ->>C: ISSUE_REPLY(signNo)
+    MQ->>C: ISSUE_REPLY(signNo + issueNo)
 
     C->>L: 获取 signNo 业务锁
     L-->>C: 获取成功
 
     critical 状态校验
         C->>DB: 校验 Sign = ISSUE_CASE
+        C->>DB: 校验该 issueNo 仍待处理
     end
 
     C->>L: 释放业务锁
@@ -640,7 +662,7 @@ sequenceDiagram
         C->>DB: 更新材料结果
     end
 
-    C->>MQ: 发布问题件回复
+    C->>MQ: 发布问题件回复（携带 issueNo）
     MQ-->>A: 问题件回复
 
     C->>L: 获取 signNo 业务锁
@@ -650,7 +672,7 @@ sequenceDiagram
         C->>DB: 再次校验 Sign 当前状态
 
         alt 仍为 ISSUE_CASE
-            C->>DB: 更新问题件
+            C->>DB: 更新该 issueNo 的问题件
             C->>DB: Sign -> WAIT_AUDIT_ACCEPT
 
         else CLAIM_REVOKED
@@ -723,7 +745,7 @@ sequenceDiagram
 
 - 审核成功回调不得再推进为 `SIGN_COMPLETED`
 - 问题件不得再推进为 `ISSUE_CASE`
-- 承保、补材等迟到结果只记录交互结果并告警
+- 承保、补材等迟到结果只记录交互结果并产生可定位信号
 - 已进入审核阶段的申请需要向审核系统发送撤销 / 作废通知
 
 ## 5. 事件与交互
@@ -731,13 +753,13 @@ sequenceDiagram
 | 类型 | 名称 | 方向 | 触发 |
 | --- | --- | --- | --- |
 | 领域事件 | `SIGN_ACCEPT` | 平台内 | 签收落库成功，启动异步受理 |
-| 领域事件 | `ISSUE_REPLY` | 平台内 | 问题件回复与补材接收成功 |
+| 领域事件 | `ISSUE_REPLY` | 平台内 | 问题件回复与补材接收成功，载荷绑定 `issueNo` |
 | 领域事件 | `CLAIM_REVOKE` | 平台 → 审核系统 | 撤销已进入审核阶段的申请 |
 | 交互 | `AUTO_UNDERWRITING` | 平台 → 承保系统 | 未查询到有效保单，按 `signNo` 幂等发起 |
 | 交互 | `AUDIT_SYNC` | 平台 → 审核系统 | 受理成功或问题件恢复后提交审核 |
 | 交互 | `AUDIT_RESULT` | 审核系统 → 平台 | 审核签收结果，携带一个或多个案件号 |
 | 交互 | `AUDIT_ISSUE` | 审核系统 → 平台 | 审核发起问题件 |
-| 交互 | `ISSUE_NOTIFY` | 平台 → 租户 | 问题件下发 |
+| 交互 | `ISSUE_NOTIFY` | 平台 → 租户 | 问题件下发，携带平台 `issueNo` 供回复与补材绑定 |
 | 交互 | `MATERIAL_FETCH` | 平台 → OSS | 影像与补充材料下载处理 |
 
-领域事件载荷必须携带基线 §7 规定的 `eventId`、事件版本、`tenantCode`、聚合类型、聚合标识、发生时间与 `traceId`；`signNo` 是业务定位标识。完整 InteractionType 取值清单以基线 §10 为准。
+领域事件载荷必须携带基线 §7 规定的 `eventId`、事件版本、`tenantCode`、聚合类型、聚合标识、发生时间与 `traceId`；`signNo` 是签收的业务定位标识，问题件相关事件另带 `issueNo`。完整 InteractionType 取值清单以基线 §10 为准。

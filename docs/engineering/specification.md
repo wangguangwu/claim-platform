@@ -31,7 +31,7 @@ docs/specs/<feature-name>/   # 小写 kebab-case，一个功能一个目录
 - 三个文件固定存在，不新增其他文件，不做 `FR-xxx → DS-xxx → TK-xxx` 编号回链和追踪矩阵。
 - 服务级长期架构基准不属于 Spec，落在 `docs/architecture/<service>.md`（现有：`docs/architecture/claim-sign-service.md`），不受本节三文件与第 7 节删除规则约束；Spec 的 `design.md` 只写相对该基准的落地增量，不复述基准内容。
 - 一个 Feature 的 Spec 尽量短：能一句话说清的规则不要展开成段落，不复述代码里已经能看到的东西。
-- `docs/specs/baseline.md` 已经定义的公共需求与约束，Feature 文档不重复，只写本 Feature 的增量；与基线冲突时按 `docs/specs/baseline.md`「与功能 Spec 的关系」处理。
+- `docs/specs/baseline.md` 已经定义的公共需求与约束，Feature 文档不重复，只写本 Feature 的增量；与基线冲突时按 `docs/specs/baseline.md`「与功能 Spec 和架构基准的关系」处理。
 
 ## 3. requirements.md
 
@@ -87,6 +87,7 @@ docs/specs/<feature-name>/   # 小写 kebab-case，一个功能一个目录
 ## 7. 交付与清理
 
 - 功能交付后直接删除 `docs/specs/<feature-name>/`，不保留归档目录。
-- 删除前必须把 Spec 中长期有效的结论回写归属文档的对应章节：平台级命名、对外契约、跨服务约束回写 `docs/specs/baseline.md`，签收域内的架构结论回写 `docs/architecture/claim-sign-service.md`。只服务于本次实现过程的临时内容（改动映射表、实施顺序、验证记录）不回写。
+- 删除前必须把 Spec 中长期有效的结论回写归属文档的对应章节：平台级命名、对外契约、跨服务约束回写 `docs/specs/baseline.md`，签收域内的架构结论回写 `docs/architecture/claim-sign-service.md`，推送域内回写 `docs/architecture/claim-case-push-service.md`（该基准建立后生效）。只服务于本次实现过程的临时内容（改动映射表、实施顺序、验证记录）不回写。
+- 新建任何域内架构基准时，必须同步登记到 `AGENTS.md` 的规则归属表与执行顺序、`README.md` 导航，并更新 `docs/specs/baseline.md` 的域内委派句与回写清单；未登记的基准不算交付完成。
 - 结论未回写干净不得删除 Spec。
 - `docs/specs/` 只保留 `baseline.md` 和未完成的活动 Feature 目录，目录说明由本文件承担。

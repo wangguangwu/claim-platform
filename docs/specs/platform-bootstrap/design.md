@@ -1,6 +1,6 @@
 # 平台工程启动设计
 
-本 Spec 只落地平台基础设施，服务边界、共享模块限制、技术版本与响应契约均遵循 [项目基线](../baseline.md)。签收领域实现由 [签收流程 Spec](../sign-workflow/requirements.md) 承接，不在此重复或提前实现。
+本 Spec 只落地平台基础设施，服务边界、共享模块限制、技术版本与响应契约均遵循 [项目基线](../baseline.md)。签收领域内核由 [签收内核 Spec](../sign-core/requirements.md) 承接，租户协议与外部协同由 [签收适配与协同 Spec](../sign-adaptation-collaboration/requirements.md) 承接，不在此重复或提前实现。
 
 ## 总体架构
 
@@ -23,10 +23,10 @@ flowchart LR
 
 ## 核心链路设计
 
-1. 根 `pom.xml` 统一锁定 Java 17、Spring Boot 3.2 及基线指定依赖版本；四个模块由根工程聚合构建。
+1. 根 `pom.xml` 统一锁定 Java 17、Spring Boot 3.2、Flyway 及基线指定依赖版本；四个模块由根工程聚合构建。Flyway 只提供统一迁移机制，本 Spec 不创建领域迁移脚本。
 2. `claim-common` 提供 `ApiResult<T>`、Trace 上下文、通用错误响应模型和无领域含义的基础工具；不得引入 Sign 或 Push 类型。
 3. 每个可执行服务提供 local profile、Actuator 健康检查和结构化安全日志。`traceId` 由入口透传；缺失时在网关或服务入口生成，并写入 MDC 与响应。
-4. `claim-gateway` 从 Nacos 读取本地路由与限流配置，只转发版本化服务入口。认证凭证到 `TenantContext` 的映射尚未确认，本 Spec 不伪造信任来源，也不允许从业务请求体读取 `tenantCode`。
+4. `claim-gateway` 从 Nacos 读取本地路由与限流配置，只转发版本化服务入口。生产认证凭证到 `TenantContext` 的映射尚未确认；但 `local` profile 必须在 Gateway 校验仅限开发的测试凭证，并从受控映射建立测试 `TenantContext`。不得从业务请求体、路径或查询参数读取 `tenantCode`，非 `local` profile 不得启用该入口。
 5. Compose 将 MySQL 8、Redis 7、RocketMQ、Nacos、XXL-Job 与 OSS 兼容存储编排为有健康检查的本地依赖。配置通过不含真实凭证的环境变量模板注入；本地持久卷只保存可重建的开发数据。
 6. Compose 的 app profile 使用各服务 Dockerfile 构建并启动三个后端服务；infra profile 可单独供 IDE 直接启动服务使用。
 
@@ -45,7 +45,7 @@ flowchart LR
 
 - 中间件不可用时，服务健康检查必须反映依赖状态；启动或调用日志仅记录依赖名称、服务名与 `traceId`，不记录账号、令牌、连接串或请求原文。
 - Compose 默认凭证只适用于本地开发，提交的配置文件只保留占位值或开发专用值；生产凭证不进入仓库。
-- 服务无法识别可信租户时，不得建立 `TenantContext` 或以请求中的业务字段替代；待租户认证协议确认后由后续实现补齐。
+- 服务无法识别可信租户时，不得建立 `TenantContext` 或以请求中的业务字段替代；`local` 测试凭证只允许由 Gateway 校验并建立测试上下文，生产认证协议仍待后续实现补齐。
 
 ## 测试策略
 
