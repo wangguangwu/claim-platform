@@ -48,7 +48,7 @@
 
 - 修改核心业务逻辑必须同步新增或更新测试。
 - 测试至少覆盖：正常路径、关键边界、异常路径，以及需求明确涉及的幂等、重复请求或并发场景。
-- 测试名称直接体现"业务场景 + 条件 + 预期结果"，例如 `shouldUploadMaterialsWhenStatusIsImageNotUpload`、`shouldThrowWhenSignNotFound`。
+- 测试名称直接体现"业务场景 + 条件 + 预期结果"，例如 `shouldBindCaseWhenAuditResultApproved`、`shouldThrowWhenSignNotFound`。
 - 不得为了提高覆盖率编写没有有效断言的测试。
 
 ## 5. 改完后的代码自检
@@ -108,7 +108,7 @@
 
 ## 8. HTTP 响应与错误码
 
-适用于 Gateway 暴露的 HTTP API、全局异常处理器和异常日志。稳定响应契约放在 `claim-common`，具体服务的异常映射器留在该服务自身，不由其他服务代处理。
+适用于 Gateway 暴露的 HTTP API、全局异常处理器和异常日志。稳定响应契约放在 `claim-common`，具体服务的异常映射器放在该服务的 `interfaces/advice`（包归属见 `docs/specs/baseline.md` 第 6 节），不由其他服务代处理。
 
 成功与失败响应统一使用 `ApiResult<T>`：
 

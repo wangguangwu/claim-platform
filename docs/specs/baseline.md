@@ -90,7 +90,7 @@ flowchart LR
     FE[claim-platform-frontend\nVue 3 管理端] --> GW[claim-gateway]
     GW --> SIGN[claim-sign-service\n理赔签收]
     GW --> PUSH[claim-case-push-service\n案件推送]
-    SIGN --> SIGNDB[(claim_intake_db)]
+    SIGN --> SIGNDB[(claim_sign_db)]
     PUSH --> PUSHDB[(push_db)]
     SIGN --> REDIS[(Redis)]
     SIGN --> MQ[RocketMQ]
@@ -119,7 +119,7 @@ flowchart LR
 | `t_claim_sign_case_rel` | `Sign → ClaimCase` 关系 |
 | `t_claim_sign_interaction_log` | 跨系统交互日志 |
 
-自增 `id` 只作内部主键，不参与业务语义；业务查询与跨系统对账一律使用 `signNo`、`externalApplyNo`、`materialNo`、`issueNo`、`caseNo`、`taskNo`。建表脚本直接按上表命名，不使用 `t_claim_intake*`。
+自增 `id` 只作内部主键，不参与业务语义；业务查询与跨系统对账一律使用 `signNo`、`externalApplyNo`、`materialNo`、`issueNo`、`caseNo`、`taskNo`。建表脚本直接按上表命名。
 
 ## 5. 限界上下文与职责
 
@@ -152,13 +152,19 @@ flowchart LR
 
 ```text
 com.claim.platform.sign
-├─ interfaces      sign（提交/查询/撤销）/ material / issue / internal（服务间入口）/ acl（租户业务语义防腐）
-├─ application     command（命令与命令处理器）/ query（查询模型与查询服务）/ task（异步任务编排）
+├─ interfaces      sign（提交/查询/撤销）/ material / issue / internal（服务间入口）/ acl（租户业务语义防腐）/ advice（边界异常映射）
+├─ application     command（命令与命令处理器）/ query（查询模型与查询服务）/ task（异步任务编排）/ port（跨用例出站端口）/ result（用例结果模型）/ exception（用例层异常）
 ├─ domain          按聚合分包：sign / material / issue；聚合内组织 model、repository、service、exception
 └─ infrastructure  persistence（dataobject / mapper / converter / repository）/ cache / mq / oss / insured / audit / internalcase
 ```
 
 `insured`、`audit` 与 `internalcase` 分别承载承保系统、审核系统与内部案件系统的调用；新增聚合（`SignTask`、`CaseRelation`、`InteractionLog`）按同一条规则在 `domain` 下建自己的聚合包。定时恢复与技术配置类目录按实际需要落在 `infrastructure` 内，不预先建立空包。
+
+端口与异常归属：
+
+- 聚合自身的持久化端口放 `domain/<聚合>/repository`；跨用例的技术端口（发号与对账，以及 Spec 若采用的业务锁、回放缓存）放 `application/port`。两者的实现都由 `infrastructure` 提供，依赖方向只允许 `infrastructure → application → domain`。
+- 用例的返回值模型放 `application/result`；外部系统 DTO 按本节反腐层规则在 `acl` 或对应出站包内转换掉，不得穿透到该包。
+- 异常按抛出层归属：领域异常放 `domain/<聚合>/exception`，用例编排抛出的异常放 `application/exception`。边界异常映射器放 `interfaces/advice`，只负责本服务异常到 HTTP 状态与上报值的映射。
 
 Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；架构蓝本中的 `com.xxx.claim.*` 只是占位写法。
 
@@ -228,18 +234,20 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 - 事件只追加兼容字段；破坏性变更必须发布新版本事件，不得静默修改旧事件含义；消费者必须把重复投递、乱序、失败重试和人工介入纳入设计。
 - API 与事件只暴露调用方需要的稳定契约；对外契约（HTTP 路径、请求响应字段、错误码字符串、指标名、Redis 键结构）的变更必须由专门的契约版本化 Spec 承接。
 
-## 8. 对外兼容契约
+## 8. 对外契约基线
 
-以下外部兼容值必须保持；变更必须由契约版本化 Spec 承接。
+下列值是平台当前的对外与运维契约固定值，一律使用第 2 节的词汇，不设命名例外。变更必须先更新本节并经用户确认，再由契约版本化 Spec 承接。
 
-| 对象 | 保留值 | 说明 |
+| 对象 | 固定值 | 说明 |
 | --- | --- | --- |
-| HTTP 路径 | `/api/v1/claim-intakes` | 对外契约，变更需版本化 |
-| 签收领域错误码 | `SignErrorCode` 全部 6 项的常量名与上报值：`CLAIM_INTAKE_NOT_FOUND`、`INVALID_INTAKE_STATUS`、`INTAKE_SUBMISSION_IN_PROGRESS`、`CLAIM_INTAKE_CONCURRENT_MODIFICATION`、`INTAKE_NUMBER_UNAVAILABLE`、`INTAKE_NUMBER_EXHAUSTED` | 面向调用方的机器可读契约，常量名与上报值一体；状态模型重构只改内部状态，不改上报值 |
-| 平台通用错误码 | 400 `REQUEST_VALIDATION_FAILED`、401 `UNAUTHORIZED`、500 `INTERNAL_ERROR` | 不进入领域错误码枚举，由边界异常映射器使用 |
-| 指标名 | `claim.intake.submission*`、`claim.intake.number.*` | 外部看板与告警使用这些名字 |
-| Redis 键前缀 | `claim:intake:submit:`、`claim:intake:replay:` | 幂等回放缓存与锁的键结构 |
-| 数据库 | 库名 `claim_intake_db` | 表名与列名按第 4 节的数据表归属执行 |
+| HTTP 路径 | `/api/v1/signs` | 签收资源的根路径；材料、问题件、撤销作为子资源挂在其下 |
+| 签收领域错误码 | `SignErrorCode` 六项常量名与上报值：`SIGN_NOT_FOUND`(404)、`INVALID_SIGN_STATUS`(409)、`SIGN_SUBMISSION_IN_PROGRESS`(409)、`SIGN_CONCURRENT_MODIFICATION`(409)、`SIGN_NO_UNAVAILABLE`(503)、`SIGN_NO_EXHAUSTED`(503) | 面向调用方的机器可读契约，常量名与上报值一体；状态模型重构只改内部状态，不改上报值 |
+| 平台通用错误码 | 400 `REQUEST_VALIDATION_FAILED`、401 `UNAUTHORIZED`、500 `INTERNAL_ERROR` | 不进入领域错误码枚举，由 `interfaces/advice` 的边界异常映射器使用 |
+| 指标名 | `claim.sign.submission*`、`claim.sign.number.*` | 看板与告警按 `claim.<业务域>.*` 命名 |
+| Redis 键前缀 | `claim:sign:submit:`、`claim:sign:replay:` | 若 Spec 采用幂等回放缓存或租户级业务锁，键前缀按此保留；第 7 节不强制这两类机制必须存在 |
+| 数据库 | 库名 `claim_sign_db` | 表名与列名按第 4 节的数据表归属执行 |
+
+领域异常与上报值同名映射：异常类名取上报值的驼峰形式加 `Exception`（`SIGN_NOT_FOUND` ↔ `SignNotFoundException`），映射表由边界异常映射器持有，不得散落到用例与领域模型中。
 
 未列出的对外契约不得据此推断为可变更；需要变更时同样由契约版本化 Spec 承接。
 
@@ -260,6 +268,7 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 - 网关按租户、调用方和路由执行认证、限流与 Trace 透传；推送按租户、目标系统和协议适配器隔离并发与配额。
 - 配置规则按环境和租户隔离，变更必须记录变更人、时间、生效范围和前后值摘要。
 - 聚合查询发生局部依赖失败时，必须返回已获得数据、失败来源和 `traceId`，不得将局部失败伪装为空结果。
+- Trace 透传、MDC 日志字段与指标暴露所需的依赖和配置，口径同第 3 节的建表脚本：由首个交付相应能力的 Spec 一并提供。未被任何 Spec 交付前，本节按服务已具备的能力执行，不得把"基线已写"当作"已具备"。
 
 跨系统交互审计（`InteractionLog`）：
 
@@ -280,9 +289,9 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 ## 12. 与功能 Spec 的关系
 
 - 功能 Spec 只写本功能的增量需求与设计，公共内容引用本文件而不复制。
-- 功能实现只能细化本文件，不能绕过或降低其中的约束；与 §8 保留契约冲突时，以本文件为准。
+- 功能实现只能细化本文件，不能绕过或降低其中的约束；与 §8 登记的对外契约冲突时，以本文件为准。
 - 修改对外 API、领域事件、共享契约、数据库边界、租户模型或功能域划分时，必须先更新本文件并经用户确认，再动代码。
-- 功能交付后其 Spec 直接删除，其中长期有效的结论（已定命名、保留契约、既定约束）必须回写本文件的对应章节。
-- 实现细节不进本文件，由功能 Spec 设计：SQL DDL 与迁移脚本、`SignNo` 格式、Redis Key 的完整结构与恢复算法、Task 状态机与重试与超时恢复、MQ Topic 与 Tag 与 Consumer、Cache Key 与 TTL、租户 Adapter 落地、承保与审核接口、问题件规则、单元测试与集成测试与压测。第 7 节的业务不变式与第 8 节的对外兼容值除外。
+- 功能交付后其 Spec 直接删除，其中长期有效的结论（已定命名、对外契约、既定约束）必须回写本文件的对应章节。
+- 实现细节不进本文件，由功能 Spec 设计：SQL DDL 与迁移脚本、`SignNo` 格式、Redis Key 的完整结构与恢复算法、Task 状态机与重试与超时恢复、MQ Topic 与 Tag 与 Consumer、Cache Key 与 TTL、租户 Adapter 落地、承保与审核接口、问题件规则、单元测试与集成测试与压测。第 7 节的业务不变式与第 8 节的对外契约值除外。
 - 开发链路固定为：架构（本文件）→ `requirements.md` → `design.md` → `tasks.md` → 实现。
 - 规则冲突时的权威顺序：`docs/specs/baseline.md` → `docs/engineering/*.md` → 代码与测试。

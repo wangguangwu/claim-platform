@@ -56,4 +56,4 @@ claim-platform/
 mvn verify
 ```
 
-后端改动必须通过 `mvn verify`；前端改动必须通过 `npm run typecheck` 与 `npm run build`。门禁细则见 [docs/engineering/workflow.md](docs/engineering/workflow.md) 第 6 节。
+后端改动必须通过 `mvn verify`；前端改动（`claim-platform-frontend/` 建立后）必须通过 `npm run typecheck` 与 `npm run build`。门禁细则见 [docs/engineering/workflow.md](docs/engineering/workflow.md) 第 6 节。
