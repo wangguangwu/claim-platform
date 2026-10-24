@@ -84,7 +84,7 @@
 
 - 统一使用 SLF4J（`@Slf4j`）和占位符：`log.info("签收申请创建成功，signNo={}", signNo)`；禁止字符串拼接。
 - 异常日志保留完整堆栈：`log.error("签收申请处理失败，signNo={}", signNo, e)`；不得只记 `e.getMessage()`。
-- 日志优先携带能定位业务问题的标识：`tenantCode`、`signNo`、`externalApplyNo`、`claimNo`、`traceId`。
+- 日志优先携带能定位业务问题的标识：`tenantCode`、`signNo`、`externalApplyNo`、`caseNo`、`taskNo`、`traceId`。
 - 日志内容不得触碰 `docs/specs/baseline.md` 的敏感信息红线；高频循环中避免打印大量 `info`。
 
 ### Spring 与 Lombok
@@ -131,9 +131,11 @@
 | 场景 | HTTP 状态 | 错误码 | 日志要求 |
 | --- | --- | --- | --- |
 | 参数校验失败 | 400 | `REQUEST_VALIDATION_FAILED` | 记录字段名和 `traceId`，不记录原始敏感值 |
-| JSON 或请求格式错误 | 400 | 上下文定义的错误码 | 记录异常类别和 `traceId`，不记录原始报文 |
+| JSON 或请求格式错误 | 400 | `REQUEST_VALIDATION_FAILED` | 记录异常类别和 `traceId`，不记录原始报文 |
+| 调用方身份无效 | 401 | `UNAUTHORIZED` | 记录调用方类别和 `traceId`，不记录凭证 |
 | 资源不存在 | 404 | 上下文定义的错误码 | 记录资源类型与 `traceId`，不记录跨租户标识 |
 | 状态冲突或幂等冲突 | 409 | 上下文定义的错误码 | 记录聚合类型、已脱敏标识和 `traceId` |
+| 服务暂不可用或资源耗尽 | 503 | 上下文定义的错误码 | 记录依赖类别、聚合类型和 `traceId`，不记录外部响应原文 |
 | 未预期服务端错误 | 500 | `INTERNAL_ERROR` | 记录异常类别和 `traceId`，响应不暴露内部信息 |
 
 - 不把异常信息、堆栈、SQL、外部系统响应原文或敏感请求体直接返回调用方。

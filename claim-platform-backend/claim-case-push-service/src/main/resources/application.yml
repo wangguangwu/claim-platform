@@ -11,11 +11,6 @@ spring:
     url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/push_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
     username: ${CLAIM_DB_USERNAME:claim}
     password: ${CLAIM_DB_PASSWORD:claim-local-password}
-  jpa:
-    open-in-view: false
-    hibernate:
-      ddl-auto: validate
-
 server:
   port: ${SERVER_PORT:8082}
 

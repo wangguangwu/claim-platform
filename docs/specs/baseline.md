@@ -65,6 +65,7 @@ Claim Platform（理赔平台）负责理赔链路的**前段交互**与**后段
 - 前端：Vue 3、TypeScript、Vite、Pinia、Vue Router、Axios。
 - 可观测：OpenTelemetry、Prometheus、Grafana、Loki。
 - 容器：Docker、Docker Compose；本地中间件编排与建表脚本由交付相应能力的 Spec 一并提供。
+- 持久化：所有持久化服务统一使用 MyBatis-Plus（版本以根 `pom.xml` 为准）；不使用 JPA。
 - 对象映射：MapStruct（版本以根 `pom.xml` 为准），只做对象转换，不承载业务规则与状态流转。
 - 签收服务的存储与中间件固定为 MySQL（业务事实）、Redis（发号、缓存、锁）、RocketMQ（异步任务）、XXL-Job（恢复与对账）、OSS（材料原文）；不引入其他存储。材料原文不落库，库内只保留材料信息、来源与地址引用。
 - 版本以根 `pom.xml` 与各模块 `package.json` 为准，不得自行升级 JDK、Spring Boot 或核心依赖。
@@ -97,6 +98,7 @@ flowchart LR
     SIGN <--> POLICY[承保系统]
     SIGN <--> AUDIT[审核系统]
     SIGN <--> CASE[内部案件系统]
+    CASE -->|案件生成事件| PUSH
 ```
 
 - `claim-common` 只能包含无领域含义的技术能力和稳定共享契约（包括 `ApiResult<T>` 响应信封）；业务实体、Repository、领域规则和跨上下文共享表不得进入该模块。
@@ -153,10 +155,10 @@ com.claim.platform.sign
 ├─ interfaces      sign（提交/查询/撤销）/ material / issue / internal（服务间入口）/ acl（租户业务语义防腐）
 ├─ application     command（命令与命令处理器）/ query（查询模型与查询服务）/ task（异步任务编排）
 ├─ domain          按聚合分包：sign / material / issue；聚合内组织 model、repository、service、exception
-└─ infrastructure  persistence（dataobject / mapper / converter / repository）/ cache / mq / oss / insured / audit
+└─ infrastructure  persistence（dataobject / mapper / converter / repository）/ cache / mq / oss / insured / audit / internalcase
 ```
 
-`insured` 与 `audit` 分别承载承保系统、审核系统的调用；新增聚合（`SignTask`、`CaseRelation`、`InteractionLog`）按同一条规则在 `domain` 下建自己的聚合包。定时恢复与技术配置类目录按实际需要落在 `infrastructure` 内，不预先建立空包。
+`insured`、`audit` 与 `internalcase` 分别承载承保系统、审核系统与内部案件系统的调用；新增聚合（`SignTask`、`CaseRelation`、`InteractionLog`）按同一条规则在 `domain` 下建自己的聚合包。定时恢复与技术配置类目录按实际需要落在 `infrastructure` 内，不预先建立空包。
 
 Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；架构蓝本中的 `com.xxx.claim.*` 只是占位写法。
 
@@ -204,10 +206,10 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 一致性与幂等：
 
 - 签收提交、案件推送、回执处理和人工确认等写入必须可幂等重试，重复请求不得造成重复业务副作用。
-- 签收的幂等键固定为 `tenantCode + externalApplyNo`，按三层保障实现：**第一层**幂等回放缓存优先、事实库回源；**第二层**租户级业务锁加锁内二次查询；**第三层**数据库唯一约束最终兜底。事实库是签收事实及其状态的唯一事实来源，缓存与锁不得作为终态依据。
-- 锁等待超时必须返回可重试的并发错误；缓存或锁不可用时必须降级，并由唯一约束继续保证幂等；唯一键冲突必须回查并发赢家并回放，回查不到时按编号碰撞处理，不得直接返回未知 500。
+- 签收的幂等键固定为 `tenantCode + externalApplyNo`。重复请求必须回放既有结果或返回可重试的并发错误，数据库唯一约束是最终保障；事实库是签收事实及其状态的唯一来源，缓存与锁不得作为终态依据。
+- 唯一键冲突必须回查并发赢家并回放，回查不到时按编号碰撞处理，不得直接返回未知 500。
 - 签收、材料、初始状态与交互日志必须在同一创建事务内提交或回滚；发号与外部调用不得置于该事务中。
-- `SignNo` 发号采用 Redis 计数器 + 数据库高水位兜底 + 对账任务校正，任何一条路径都必须能在事实库恢复出正确序号；Redis 恢复时按事实库最大 `SignNo` 重新初始化，数据库唯一键作最终兜底。
+- `SignNo` 必须全局唯一，并能从事实库恢复正确序列；数据库唯一键作最终兜底。
 - 需要发送领域事件的本地写入必须采用 Outbox 或等效的原子意图记录，不得"先写库再直接发消息"。
 - 消费者、回执处理器和补偿任务必须按事件或业务幂等键去重，并记录重复处理结果。
 - 外部调用不得置于数据库事务中；调用失败必须转化为可查询的重试、死信或人工介入状态。
@@ -233,7 +235,8 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 | 对象 | 保留值 | 说明 |
 | --- | --- | --- |
 | HTTP 路径 | `/api/v1/claim-intakes` | 对外契约，变更需版本化 |
-| 领域错误码 | `SignErrorCode` 全部 6 项的常量名与上报值：`CLAIM_INTAKE_NOT_FOUND`、`INVALID_INTAKE_STATUS`、`INTAKE_SUBMISSION_IN_PROGRESS`、`CLAIM_INTAKE_CONCURRENT_MODIFICATION`、`INTAKE_NUMBER_UNAVAILABLE`、`INTAKE_NUMBER_EXHAUSTED` | 面向调用方的机器可读契约，常量名与上报值一体；状态模型重构只改内部状态，不改上报值 |
+| 签收领域错误码 | `SignErrorCode` 全部 6 项的常量名与上报值：`CLAIM_INTAKE_NOT_FOUND`、`INVALID_INTAKE_STATUS`、`INTAKE_SUBMISSION_IN_PROGRESS`、`CLAIM_INTAKE_CONCURRENT_MODIFICATION`、`INTAKE_NUMBER_UNAVAILABLE`、`INTAKE_NUMBER_EXHAUSTED` | 面向调用方的机器可读契约，常量名与上报值一体；状态模型重构只改内部状态，不改上报值 |
+| 平台通用错误码 | 400 `REQUEST_VALIDATION_FAILED`、401 `UNAUTHORIZED`、500 `INTERNAL_ERROR` | 不进入领域错误码枚举，由边界异常映射器使用 |
 | 指标名 | `claim.intake.submission*`、`claim.intake.number.*` | 外部看板与告警使用这些名字 |
 | Redis 键前缀 | `claim:intake:submit:`、`claim:intake:replay:` | 幂等回放缓存与锁的键结构 |
 | 数据库 | 库名 `claim_intake_db` | 表名与列名按第 4 节的数据表归属执行 |
@@ -252,7 +255,7 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 
 ## 10. 可观测与全局需求
 
-- 核心请求、任务、消息和外部调用必须关联 `traceId` 与 `tenantCode`，并在已知时关联 `signNo`、`externalApplyNo`、`caseNo`、`taskId`。
+- 核心请求、任务、消息和外部调用必须关联 `traceId` 与 `tenantCode`，并在已知时关联 `signNo`、`externalApplyNo`、`caseNo`、`taskNo`。
 - Metrics、Logs、Traces 必须支持按服务、租户和任务状态定位；失败、重试、死信、积压、限流和外部依赖错误必须可告警。
 - 网关按租户、调用方和路由执行认证、限流与 Trace 透传；推送按租户、目标系统和协议适配器隔离并发与配额。
 - 配置规则按环境和租户隔离，变更必须记录变更人、时间、生效范围和前后值摘要。
@@ -280,6 +283,6 @@ Java 包根固定为 `com.claim.platform.sign` 与 `com.claim.platform.push`；�
 - 功能实现只能细化本文件，不能绕过或降低其中的约束；与 §8 保留契约冲突时，以本文件为准。
 - 修改对外 API、领域事件、共享契约、数据库边界、租户模型或功能域划分时，必须先更新本文件并经用户确认，再动代码。
 - 功能交付后其 Spec 直接删除，其中长期有效的结论（已定命名、保留契约、既定约束）必须回写本文件的对应章节。
-- 实现细节不进本文件，由功能 Spec 设计：SQL DDL 与迁移脚本、`SignNo` 格式与 Redis Key 及恢复逻辑、Task 状态机与重试与超时恢复、MQ Topic 与 Tag 与 Consumer、Cache Key 与 TTL、租户 Adapter 落地、承保与审核接口、问题件规则、幂等键取值、单元测试与集成测试与压测。
+- 实现细节不进本文件，由功能 Spec 设计：SQL DDL 与迁移脚本、`SignNo` 格式、Redis Key 的完整结构与恢复算法、Task 状态机与重试与超时恢复、MQ Topic 与 Tag 与 Consumer、Cache Key 与 TTL、租户 Adapter 落地、承保与审核接口、问题件规则、单元测试与集成测试与压测。第 7 节的业务不变式与第 8 节的对外兼容值除外。
 - 开发链路固定为：架构（本文件）→ `requirements.md` → `design.md` → `tasks.md` → 实现。
 - 规则冲突时的权威顺序：`docs/specs/baseline.md` → `docs/engineering/*.md` → 代码与测试。
