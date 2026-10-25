@@ -1,6 +1,6 @@
 # 签收内核任务
 
-- [ ] 在 `claim-sign-service` 建立五个签收聚合、领域异常、标识、不变量、8 态流转与三类终态保护。
+- [x] 在 `claim-sign-service` 建立五个签收聚合、领域异常、标识、不变量、8 态流转与三类终态保护。
 - [ ] 编写 `claim_sign_db` 的 Flyway 版本化 SQL：按架构基准 §3 的最终列交付五张表（含问题件 `issue_no` 与 `ext_json`）、唯一约束、逻辑关联与审计检索索引；验证空库迁移且无物理外键，对外的契约命名不进 DDL。
 - [ ] 实现 `SignNo` 发放与事实库恢复、`issueNo` 在 `tenantCode + signNo` 范围内发放与唯一性、基于 `TenantContext` 的租户范围校验和跨租户隔离。
 - [ ] 实现同步创建内核：快查回放、`tenantCode + externalApplyNo` 业务锁、唯一键冲突赢家回查，以及 Sign、初始 Material、初始状态、`SIGN_SUBMIT` 审计的创建事务。
