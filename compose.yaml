@@ -125,10 +125,13 @@ services:
       SIGN_DB_URL: jdbc:mysql://mysql:3306/claim_sign_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
       MYSQL_USER: ${MYSQL_USER:-claim}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-claim-local-only}
+      XXL_JOB_ADMIN_ADDRESSES: http://xxl-job-admin:8080/xxl-job-admin
+      XXL_JOB_EXECUTOR_PORT: 9999
     depends_on:
       mysql: { condition: service_healthy }
       redis: { condition: service_healthy }
       nacos: { condition: service_healthy }
+      xxl-job-admin: { condition: service_healthy }
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8081/actuator/health || exit 1"]
       interval: 15s
