@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: claim-gateway
+  config:
+    import: optional:nacos:application.yaml?group=DEFAULT_GROUP&refreshEnabled=true
+  cloud:
+    nacos:
+      config:
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+    gateway:
+      routes:
+        - id: sign-service
+          uri: ${SIGN_SERVICE_URL:http://localhost:8081}
+          predicates: [ Path=/api/v1/signs/** ]
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: '#{@tenantKeyResolver}'
+                redis-rate-limiter.replenishRate: ${GATEWAY_RATE_LIMIT_REPLENISH:20}
+                redis-rate-limiter.burstCapacity: ${GATEWAY_RATE_LIMIT_BURST:40}
+        - id: push-service
+          uri: ${PUSH_SERVICE_URL:http://localhost:8082}
+          predicates: [ Path=/api/v1/push/** ]
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: '#{@tenantKeyResolver}'
+                redis-rate-limiter.replenishRate: ${GATEWAY_RATE_LIMIT_REPLENISH:20}
+                redis-rate-limiter.burstCapacity: ${GATEWAY_RATE_LIMIT_BURST:40}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+management:
+  endpoints.web.exposure.include: health,info
+  endpoint.health.probes.enabled: true
+  health.nacos.enabled: false
+logging:
+  pattern.level: '%5p [traceId=%X{traceId:-}]'

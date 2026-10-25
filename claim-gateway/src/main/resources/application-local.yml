@@ -1,0 +1,7 @@
+claim:
+  gateway:
+    local-tenant:
+      enabled: true
+      credentials:
+        local-tenant-a: tenant-a
+        local-tenant-b: tenant-b
